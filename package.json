@@ -1,14 +1,27 @@
 {
   "name": "kidsdictate",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "description": "Privacy-first offline dictation assistant for primary school kids.",
+  "author": "Jacky Law",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jackylawck/KidsDictate.git"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "dev": "tsc -w & tailwindcss -i ./src/input.css -o ./css/app.css --watch",
-    "build": "tsc && tailwindcss -i ./src/input.css -o ./css/app.css --minify",
-    "serve": "npx serve ."
+    "clean": "rimraf js css",
+    "dev": "concurrently --kill-others-on-fail \"tsc -w\" \"tailwindcss -i ./src/input.css -o ./css/app.css --watch\"",
+    "build": "npm run clean && tsc && tailwindcss -i ./src/input.css -o ./css/app.css --minify",
+    "serve": "npx serve -s ."
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.0.0"
   }
