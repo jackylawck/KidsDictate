@@ -9,7 +9,7 @@ export class AppController {
       this.engine = new SpeechEngine();
       this.testEngine = new SpeechEngine();
     } catch {
-      // [P3-5] 保留防禦未來 constructor 加驗證
+      // [防禦] 保留未來 constructor 可能加入的驗證
       this.engine = { play: () => this.showToast('語音功能不可用', 'error'), stop: () => {}, initVoices: async () => {}, isSupported: false, isPaused: () => false };
       this.testEngine = this.engine;
     }
@@ -22,11 +22,11 @@ export class AppController {
     this.remainingSec = 0;
     this.totalPauseSec = 8;
     
-    // 狀態快取與並發鎖
+    // 狀態快取與並行鎖
     this._populatingVoices = null; 
     this._unsubI18n = null;        
-    this._lastRepeatStatus = '';   // 記住朗讀進度，以便從暫停中恢復
-    this._ocrToken = 0;            // 防止連續上傳的進度與結果互蓋
+    this._lastRepeatStatus = '';   // 記錄朗讀進度，以便從暫停中恢復
+    this._ocrToken = 0;            // 防止連續上傳的進度與結果互相覆蓋
     this._ocrHideTimer = null;     // 防止連續上傳時，舊 timer 提早關閉 UI
 
     this.initElements();
@@ -90,7 +90,7 @@ export class AppController {
       if (this.el.pauseBtn) {
         this.el.pauseBtn.textContent = this.speechService.isPaused() ? i18n.t('resumeBtn') : i18n.t('pauseBtn');
       }
-      // 動態文字更新：恢復暫停/朗讀狀態
+      // 動態文字更新：恢復暫停或朗讀狀態
       if (this.el.repeatStatus) {
         this.el.repeatStatus.textContent = this.speechService.isPaused() ? i18n.t('pausedStatus') : this._lastRepeatStatus;
       }
@@ -108,7 +108,7 @@ export class AppController {
     this.el.langZhBtn?.setAttribute('aria-pressed', String(locale === 'zh-HK'));
     this.el.langEnBtn?.setAttribute('aria-pressed', String(locale === 'en'));
 
-    // 切換語言時，重新填充語音選單，讓「(本機)/(雲端)」也跟著翻譯
+    // 切換語言時，重新填充語音選單，確保「(本機)/(雲端)」也正確翻譯
     this.populateVoices();
   }
 
@@ -122,7 +122,7 @@ export class AppController {
     }
   }
 
-  // [修復] 加上 ?. 守衛，保護 SPA 環境下 DOM 已被移除時的意外崩潰
+  // [修復] 加上 ?. 守衛，保護在 SPA 環境中，DOM 已被移除時不發生崩潰
   setPlaybackUI(isPlaying) {
     this.el.startBtn?.classList.toggle('hidden', isPlaying);
     this.el.stopBtn?.classList.toggle('hidden', !isPlaying);
@@ -164,7 +164,7 @@ export class AppController {
         defaultOpt.textContent = i18n.t('systemDefaultVoice');
         this.el.voiceSelect.appendChild(defaultOpt);
 
-        // [修復] 設備沒語音包時，給予明確的 Disabled 選項提示
+        // [修復] 如果設備沒有該語言的語音包，給予明確的 Disabled 選項提示
         if (list.length === 0) {
           const noVoiceOpt = document.createElement('option');
           noVoiceOpt.disabled = true;
@@ -183,7 +183,7 @@ export class AppController {
           this.el.voiceSelect.appendChild(opt);
         });
 
-        // 防禦原生 DOM value 覆蓋行為：顯式回退到系統預設
+        // 防禦原生 DOM value 覆蓋行為：如果沒有匹配的聲音，顯式回退到系統預設
         if (prev && [...this.el.voiceSelect.options].some(o => o.value === prev)) {
           this.el.voiceSelect.value = prev;
         } else {
@@ -235,7 +235,19 @@ export class AppController {
         this.el.ocrStatusText.textContent = i18n.t('ocrOk');
       } catch (err) {
         if (token !== this._ocrToken) return;
-        this.showToast(err.message, 'error');
+        
+        // 將 Worker 的錯誤 code 映射至本地語系字典
+        const msgMap = {
+          INVALID_INPUT: 'ocrErrInvalidInput',
+          INVALID_TYPE: 'ocrErrInvalidType',
+          TOO_LARGE: 'ocrErrTooLarge',
+          NO_OFFSCREEN_CANVAS: 'ocrErrNoCanvas',
+          DECODE_FAILED: 'ocrErrDecodeFailed',
+          HEIC_UNSUPPORTED: 'ocrErrHeic', 
+          NO_CONTEXT: 'ocrErrNoContext'
+        };
+        const key = msgMap[err.code];
+        this.showToast(key ? i18n.t(key) : err.message, 'error');
         this.el.ocrStatusText.textContent = i18n.t('ocrError');
       } finally {
         if (token === this._ocrToken) {
@@ -323,7 +335,7 @@ export class AppController {
     const items = this.el.dictationText.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
     if (items.length === 0) return this.showToast(i18n.t('emptyInputError'), 'error');
 
-    // [修復] UX 優化：若該語言真的沒語音包，按「開始」時直接擋下並提示
+    // [修復] UX 優化：若該語言真的沒有語音包，按「開始」時直接擋下並提示
     const lang = this.el.langSelect.value;
     const voicesForLang = this.engine.getVoiceListForLang?.(lang) ?? [];
     if (voicesForLang.length === 0) {
@@ -400,13 +412,13 @@ export class AppController {
     this.el.answerSheet?.classList.remove('hidden');
   }
 
-  // [修復] 聯動卸載，包含 DOM 防禦
+  // [修復] 聯動卸載，包含 DOM 防禦機制
   destroy() {
     if (this._unsubI18n) this._unsubI18n();
     try { 
       this.handleStop(); 
     } catch (e) {
-      // 容錯防禦：即使 handleStop 發生意外也不影響引擎的卸載
+      // 容錯防禦：確保 handleStop 發生意外時，不影響後續引擎的卸載
     }
     this.engine.destroy?.();
     this.testEngine.destroy?.();
