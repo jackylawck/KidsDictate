@@ -14,6 +14,9 @@ export class AppController {
     }
     this.speechService = new SpeechService(this.engine);
     this.countdownInterval = null;
+    this.currentWordText = '';
+    this.remainingSec = 0;
+    this.totalPauseSec = 8;
     this.initElements();
     this.bindEvents();
     this.updateDomTranslations();
@@ -37,6 +40,7 @@ export class AppController {
       progressIndex: document.getElementById('progressIndex'),
       repeatStatus: document.getElementById('repeatStatus'),
       wordDisplay: document.getElementById('wordDisplay'),
+      maskToggle: document.getElementById('maskToggle'),
       testVoiceBtn: document.getElementById('testVoiceBtn'),
       replayBtn: document.getElementById('replayBtn'),
       skipBtn: document.getElementById('skipBtn'),
@@ -58,12 +62,29 @@ export class AppController {
   updateDomTranslations() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
-      if (key) {
-        if (el.tagName === 'INPUT' && el.type === 'button') (el as HTMLInputElement).value = i18n.t(key);
-        else if (el.tagName === 'TEXTAREA' && key === 'dictationPlaceholder') (el as HTMLTextAreaElement).placeholder = i18n.t(key);
-        else el.textContent = i18n.t(key);
+      if (!key) return;
+      if (el.tagName === 'INPUT' && el.type === 'button') {
+        el.value = i18n.t(key);
+      } else if (el.tagName === 'TEXTAREA' && key === 'dictationPlaceholder') {
+        el.placeholder = i18n.t(key);
+      } else {
+        el.textContent = i18n.t(key);
       }
     });
+    if (this.speechService.isActive) {
+      this.renderWordDisplay();
+      this.el.pauseBtn.textContent = this.speechService.isPaused() ? i18n.t('resumeBtn') : i18n.t('pauseBtn');
+    }
+  }
+
+  renderWordDisplay() {
+    if (this.el.maskToggle && this.el.maskToggle.checked) {
+      this.el.wordDisplay.textContent = i18n.t('maskedText');
+      this.el.wordDisplay.className = 'text-base font-bold text-slate-400 py-4 min-h-[64px] flex items-center justify-center select-none';
+    } else {
+      this.el.wordDisplay.textContent = this.currentWordText;
+      this.el.wordDisplay.className = 'text-3xl font-black text-slate-800 tracking-wide py-4 min-h-[64px] flex items-center justify-center';
+    }
   }
 
   bindEvents() {
@@ -71,7 +92,11 @@ export class AppController {
     this.el.langEnBtn?.addEventListener('click', () => i18n.setLocale('en'));
     i18n.onChange(() => this.updateDomTranslations());
 
-    this.el.rateRange.addEventListener('input', () => this.el.rateLabel.textContent = `${this.el.rateRange.value}x`);
+    this.el.rateRange.addEventListener('input', () => {
+      this.el.rateLabel.textContent = `${this.el.rateRange.value}x`;
+    });
+
+    this.el.maskToggle?.addEventListener('change', () => this.renderWordDisplay());
 
     this.el.imageInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
@@ -99,7 +124,7 @@ export class AppController {
       if (this.speechService.isActive) return;
       const lang = this.el.langSelect.value;
       const rate = parseFloat(this.el.rateRange.value);
-      const text = lang.startsWith('en') ? 'Testing voice.' : '測試語音發音';
+      const text = lang.startsWith('en') ? 'Testing voice setup.' : '測試語音發音，一二三四';
       this.el.testVoiceBtn.disabled = true;
       const unlockBtn = () => { this.el.testVoiceBtn.disabled = false; };
       try {
@@ -111,27 +136,32 @@ export class AppController {
 
     this.el.startBtn.addEventListener('click', () => this.handleStart());
     this.el.stopBtn.addEventListener('click', () => this.handleStop());
-    this.el.replayBtn.addEventListener('click', () => this.speechService.replayCurrent());
-    this.el.skipBtn.addEventListener('click', () => this.speechService.skipCurrent());
-    this.el.prevBtn.addEventListener('click', () => this.speechService.prevCurrent());
-    
+    this.el.replayBtn.addEventListener('click', () => { this.resetPauseButtonUI(); this.speechService.replayCurrent(); });
+    this.el.skipBtn.addEventListener('click', () => { this.resetPauseButtonUI(); this.speechService.skipCurrent(); });
+    this.el.prevBtn.addEventListener('click', () => { this.resetPauseButtonUI(); this.speechService.prevCurrent(); });
+
     this.el.pauseBtn.addEventListener('click', () => {
       if (!this.speechService.isActive) return;
       if (this.speechService.isPaused()) {
         if (this.speechService.resume()) {
-          this.el.pauseBtn.textContent = i18n.t('pauseBtn');
-          this.el.pauseBtn.className = 'px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm';
+          this.resetPauseButtonUI();
         }
       } else {
         if (this.speechService.pause()) {
           this.el.pauseBtn.textContent = i18n.t('resumeBtn');
           this.el.pauseBtn.className = 'px-4 py-2 bg-amber-50 text-amber-600 border border-amber-300 rounded-lg text-sm font-bold shadow-sm';
+          this.el.repeatStatus.textContent = i18n.t('pausedStatus');
         }
       }
     });
 
     this.el.closeAnswerBtn.addEventListener('click', () => this.el.answerSheet.classList.add('hidden'));
     this.el.printAnswerBtn.addEventListener('click', () => window.print());
+  }
+
+  resetPauseButtonUI() {
+    this.el.pauseBtn.textContent = i18n.t('pauseBtn');
+    this.el.pauseBtn.className = 'px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm';
   }
 
   showToast(message, type = 'info') {
@@ -144,31 +174,40 @@ export class AppController {
   }
 
   startCountdown(totalSeconds) {
-    let remain = totalSeconds;
+    this.totalPauseSec = totalSeconds;
+    this.remainingSec = totalSeconds;
     this.el.countdownVisual.classList.remove('hidden');
-    this.el.countdownText.textContent = i18n.t('writingStatus', { sec: remain });
+    this.el.countdownText.textContent = i18n.t('writingStatus', { sec: this.remainingSec });
     this.el.countdownBar.style.width = '100%';
     clearInterval(this.countdownInterval);
     this.countdownInterval = setInterval(() => {
-      remain--;
-      if (remain < 0) { clearInterval(this.countdownInterval); this.el.countdownVisual.classList.add('hidden'); return; }
-      this.el.countdownText.textContent = i18n.t('writingStatus', { sec: remain });
-      this.el.countdownBar.style.width = `${(remain / totalSeconds) * 100}%`;
+      if (this.speechService.isPaused()) return; // 暫停期間凍結倒數視覺
+      this.remainingSec--;
+      if (this.remainingSec < 0) {
+        clearInterval(this.countdownInterval);
+        this.el.countdownVisual.classList.add('hidden');
+        return;
+      }
+      this.el.countdownText.textContent = i18n.t('writingStatus', { sec: this.remainingSec });
+      this.el.countdownBar.style.width = `${(this.remainingSec / this.totalPauseSec) * 100}%`;
     }, 1000);
   }
 
   async handleStart() {
     const items = this.el.dictationText.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-    if (items.length === 0) return this.showToast('請先輸入默書內容', 'error');
+    if (items.length === 0) return this.showToast(i18n.t('emptyInputError'), 'error');
 
-    const config = { lang: this.el.langSelect.value, rate: parseFloat(this.el.rateRange.value), repeats: parseInt(this.el.repeatSelect.value, 10), pauseSec: parseInt(this.el.pauseInput.value, 10) || 8 };
+    const config = {
+      lang: this.el.langSelect.value,
+      rate: parseFloat(this.el.rateRange.value),
+      repeats: parseInt(this.el.repeatSelect.value, 10),
+      pauseSec: parseInt(this.el.pauseInput.value, 10) || 8
+    };
     this.el.answerSheet.classList.add('hidden');
     this.el.answerList.replaceChildren();
-    
-    this.el.pauseBtn.textContent = i18n.t('pauseBtn');
-    this.el.pauseBtn.className = 'px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm';
+    this.resetPauseButtonUI();
     this.el.testVoiceBtn.disabled = true;
-    
+
     this.el.startBtn.classList.add('hidden');
     this.el.stopBtn.classList.remove('hidden');
     this.el.playingCard.classList.remove('hidden');
@@ -180,7 +219,8 @@ export class AppController {
         this.el.countdownVisual.classList.add('hidden');
         this.el.progressIndex.textContent = i18n.t('progressText', { current: data.index + 1, total: data.total });
         this.el.repeatStatus.textContent = i18n.t('readingStatus', { current: 1, total: data.totalRepeats });
-        this.el.wordDisplay.textContent = data.text;
+        this.currentWordText = data.text;
+        this.renderWordDisplay();
       },
       onRepeat: (current, total) => { this.el.repeatStatus.textContent = i18n.t('readingStatus', { current, total }); },
       onWritingPause: (seconds) => { this.startCountdown(seconds); },
