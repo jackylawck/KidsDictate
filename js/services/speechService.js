@@ -5,41 +5,48 @@ export class SpeechService {
     this.idx = 0;
     this.repeat = 0;
     this.isActive = false;
+    this.isQueuePaused = false;
     this.timers = new Set();
-    this._queueToken = 0; 
+    this._queueToken = 0;
+    this._pausedTask = null; // 記錄暫停時未完成的計時任務
   }
 
   schedule(fn, ms) {
+    const start = Date.now();
     const t = setTimeout(() => {
       this.timers.delete(t);
-      if (this.isActive) fn();
+      this._pausedTask = null;
+      if (this.isActive && !this.isQueuePaused) fn();
     }, ms);
     this.timers.add(t);
+    this._pausedTask = { fn, remaining: ms, start, timerId: t };
   }
 
   clearQueueTimers() {
     for (const t of this.timers) clearTimeout(t);
     this.timers.clear();
+    this._pausedTask = null;
   }
 
   async startQueue(items, config, callbacks) {
-    this.stop(); 
-    const token = ++this._queueToken; 
+    this.stop();
+    const token = ++this._queueToken;
     this.queue = items;
     this.config = config;
     this.callbacks = callbacks;
     this.idx = 0;
     this.repeat = 0;
     this.isActive = true;
-    
-    callbacks.onEngineInit?.(); 
+    this.isQueuePaused = false;
+
+    callbacks.onEngineInit?.();
     await this.engine.initVoices();
     if (token !== this._queueToken || !this.isActive) return;
     this.speakCurrent(token);
   }
 
   speakCurrent(token) {
-    if (token !== this._queueToken || !this.isActive) return;
+    if (token !== this._queueToken || !this.isActive || this.isQueuePaused) return;
 
     const text = this.queue[this.idx];
     if (!text) {
@@ -63,7 +70,9 @@ export class SpeechService {
         } else {
           this.callbacks.onWritingPause?.(this.config.pauseSec);
           this.schedule(() => {
-            this.repeat = 0; this.idx++; this.speakCurrent(token);
+            this.repeat = 0;
+            this.idx++;
+            this.speakCurrent(token);
           }, this.config.pauseSec * 1000);
         }
       },
@@ -81,8 +90,9 @@ export class SpeechService {
   }
 
   stop() {
-    this._queueToken++; 
+    this._queueToken++;
     this.isActive = false;
+    this.isQueuePaused = false;
     this.clearQueueTimers();
     this.queue = [];
     this.engine.stop();
@@ -91,6 +101,7 @@ export class SpeechService {
   replayCurrent() {
     if (!this.isActive) return;
     const newToken = ++this._queueToken;
+    this.isQueuePaused = false;
     this.clearQueueTimers();
     this.engine.stop();
     this.repeat = 0;
@@ -100,6 +111,7 @@ export class SpeechService {
   skipCurrent() {
     if (!this.isActive) return;
     const newToken = ++this._queueToken;
+    this.isQueuePaused = false;
     this.clearQueueTimers();
     this.engine.stop();
     this.repeat = 0;
@@ -110,6 +122,7 @@ export class SpeechService {
   prevCurrent() {
     if (!this.isActive || this.idx === 0) return;
     const newToken = ++this._queueToken;
+    this.isQueuePaused = false;
     this.clearQueueTimers();
     this.engine.stop();
     this.repeat = 0;
@@ -117,7 +130,35 @@ export class SpeechService {
     this.speakCurrent(newToken);
   }
 
-  pause() { return (!this.isActive || !this.engine.pause) ? false : this.engine.pause(); }
-  resume() { return (!this.isActive || !this.engine.resume) ? false : this.engine.resume(); }
-  isPaused() { return this.engine.isPaused?.() ?? false; }
+  // 全域暫停：無論在發聲中還是倒數計時中皆可暫停
+  pause() {
+    if (!this.isActive || this.isQueuePaused) return false;
+    this.isQueuePaused = true;
+
+    if (this._pausedTask) {
+      clearTimeout(this._pausedTask.timerId);
+      this.timers.delete(this._pausedTask.timerId);
+      const elapsed = Date.now() - this._pausedTask.start;
+      this._pausedTask.remaining = Math.max(500, this._pausedTask.remaining - elapsed);
+    }
+    this.engine.pause?.();
+    return true;
+  }
+
+  resume() {
+    if (!this.isActive || !this.isQueuePaused) return false;
+    this.isQueuePaused = false;
+
+    if (this._pausedTask) {
+      const { fn, remaining } = this._pausedTask;
+      this.schedule(fn, remaining);
+    } else {
+      this.engine.resume?.();
+    }
+    return true;
+  }
+
+  isPaused() {
+    return this.isQueuePaused;
+  }
 }
