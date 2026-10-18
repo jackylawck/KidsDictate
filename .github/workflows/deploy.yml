@@ -27,10 +27,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # 暫時移除 cache: 'npm'，因為目前還沒有 package-lock.json
 
       - name: Install Dependencies
-        run: npm ci
+        # 將 npm ci 改為 npm install，這樣沒有 lock 檔也能安裝
+        run: npm install
 
       - name: Fetch Self-Hosted Tesseract Vendor Files (CSP Self-Contained)
         run: |
