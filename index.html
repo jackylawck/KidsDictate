@@ -2,16 +2,11 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <!-- [P2/a11y 修復] 移除禁止縮放，保留 viewport-fit=cover，讓小朋友能自由放大畫面 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f8fafc">
-  
-  <!-- [P1 修復] 絕對嚴格的 CSP：移除所有 unsafe-inline，移除外部連線，堅守零外部依賴與自託管 -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; img-src 'self' blob: data:; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';">
-  
   <title data-i18n="appTitle">童心默書 KidsDictate</title>
   <link rel="stylesheet" href="css/app.css">
   <script src="vendor/tesseract.min.js" defer></script>
@@ -35,7 +30,6 @@
         <summary data-i18n="privacyTitle" class="font-bold text-slate-700 select-none focus-visible:outline-2 focus-visible:outline-indigo-500 focus-visible:outline-offset-2 rounded group-open:text-indigo-600">🔒 隱私與安全說明 (家長請看)</summary>
         <div class="mt-3 space-y-2 text-slate-600 text-xs leading-relaxed">
           <p data-i18n="privacyP1">✅ 零資料上傳：照片與詞表只在手機記憶體內處理，絕對不上傳伺服器。</p>
-          <!-- [P3 修復] HTML 與 i18n 字典同步，避免閃爍 -->
           <p data-i18n="privacyP2">✅ 本機運算：無追蹤碼、無廣告、不收集姓名或學校資料。</p>
           <p data-i18n="privacyP3">✅ 開源可查：原始碼完全公開透明，任何人皆可審計。</p>
         </div>
@@ -67,7 +61,6 @@
           <button id="testVoiceBtn" data-i18n="testVoiceBtn" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded hover:bg-indigo-100 transition active:scale-95">🔊 測試發音</button>
         </div>
         <select id="langSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <!-- [P3 修復] 預留 data-i18n 給語言選項，為未來的完整翻譯鋪路 -->
           <option value="zh-HK" selected data-i18n="langZhHK">粵語 (廣東話)</option>
           <option value="en-US" data-i18n="langEnUS">English (US)</option>
           <option value="en-GB" data-i18n="langEnGB">English (UK)</option>
@@ -81,6 +74,15 @@
           <option value="3" selected>3</option>
         </select>
       </div>
+      
+      <!-- [修復] 補回遺失的 voiceSelect 下拉選單，解決紅色警告 -->
+      <div class="col-span-2">
+        <label class="block text-slate-600 font-medium mb-1 text-xs">聲音選擇</label>
+        <select id="voiceSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <!-- 選項會由 AppController.populateVoices() 動態產生 -->
+        </select>
+      </div>
+
       <div class="col-span-2 sm:col-span-1 pt-1">
         <div class="flex justify-between text-xs text-slate-600 font-medium mb-2">
           <span data-i18n="speedLabel">語速調整</span>
@@ -90,7 +92,6 @@
       </div>
       <div class="col-span-2 sm:col-span-1">
         <label data-i18n="pauseTimeLabel" class="block text-slate-600 font-medium mb-1 text-xs">書寫停頓 (秒)</label>
-        <!-- [P2/P3 修復] 移除無效 pattern，並將文字大小設為 text-base，徹底根除 iOS 輸入框聚焦自動放大的體驗痛點 -->
         <input type="number" id="pauseInput" value="8" min="3" max="30" inputmode="numeric" class="w-full p-2 border rounded-lg bg-white text-base text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
       </div>
     </section>
