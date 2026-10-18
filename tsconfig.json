@@ -4,10 +4,20 @@
     "module": "NodeNext",
     "outDir": "./js",
     "rootDir": "./src",
+    
+    // 嚴格模式全開
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    
+    // [P3 修復] 發生型別錯誤時拒絕輸出，防止錯誤程式碼覆蓋舊的有效產物
+    "noEmitOnError": true,
+    
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src/**/*"]
 }
