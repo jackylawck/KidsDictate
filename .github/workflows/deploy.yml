@@ -32,6 +32,16 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Fetch Self-Hosted Tesseract Vendor Files (CSP Self-Contained)
+        run: |
+          mkdir -p vendor/tessdata
+          curl -sL https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js -o vendor/tesseract.min.js
+          curl -sL https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js -o vendor/worker.min.js
+          curl -sL https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm.js -o vendor/tesseract-core-simd.wasm.js
+          curl -sL https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js -o vendor/tesseract-core.wasm.js
+          curl -sL https://tessdata.projectnaptha.com/4.0.0/chi_tra.traineddata.gz -o vendor/tessdata/chi_tra.traineddata.gz
+          curl -sL https://tessdata.projectnaptha.com/4.0.0/eng.traineddata.gz -o vendor/tessdata/eng.traineddata.gz
+
       - name: Build Project (TS & CSS)
         run: npm run build
 
