@@ -27,19 +27,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # 暫時移除 cache: 'npm'，因為目前還沒有 package-lock.json
 
       - name: Install Dependencies
-        # 將 npm ci 改為 npm install，這樣沒有 lock 檔也能安裝
         run: npm install
 
       - name: Fetch Self-Hosted Tesseract Vendor Files (CSP Self-Contained)
         run: |
           mkdir -p vendor/tessdata
+          # JS 封裝層與 Worker 核心
           curl -sL https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js -o vendor/tesseract.min.js
           curl -sL https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js -o vendor/worker.min.js
           curl -sL https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm.js -o vendor/tesseract-core-simd.wasm.js
           curl -sL https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js -o vendor/tesseract-core.wasm.js
+          
+          # [P1 修復] 真正的 WebAssembly 二進制檔案（不可或缺）
+          curl -sL https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm -o vendor/tesseract-core-simd.wasm
+          curl -sL https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm -o vendor/tesseract-core.wasm
+          
+          # 語言辨識模型資料包
           curl -sL https://tessdata.projectnaptha.com/4.0.0/chi_tra.traineddata.gz -o vendor/tessdata/chi_tra.traineddata.gz
           curl -sL https://tessdata.projectnaptha.com/4.0.0/eng.traineddata.gz -o vendor/tessdata/eng.traineddata.gz
 
@@ -49,7 +54,13 @@ jobs:
       - name: Prepare Artifacts
         run: |
           mkdir -p dist
-          cp -r index.html css js vendor dist/ 2>/dev/null || cp -r index.html css js dist/
+          # 複製現有的核心目錄
+          cp -r index.html css js vendor dist/
+          
+          # [P2 修復] 防禦性複製：為未來的 PWA 離線支援鋪路 (不存在時自動忽略)
+          cp sw.js manifest.json dist/ 2>/dev/null || true
+          cp -r assets icons dist/ 2>/dev/null || true
+          
           touch dist/.nojekyll
 
       - name: Setup Pages
