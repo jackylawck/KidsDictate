@@ -1,12 +1,14 @@
 export type Locale = 'zh-HK' | 'en';
 
+const STORAGE_KEY = 'kidsdictate_locale';
+
 export const translations = {
   'zh-HK': {
     appTitle: '童心默書 KidsDictate',
     appSubtitle: '本機離線運算 · 零資料上傳 · 家長安心',
     privacyTitle: '🔒 隱私與安全說明 (家長請看)',
     privacyP1: '✅ 零資料上傳：照片與詞表只在手機記憶體內處理，絕對不上傳伺服器。',
-    privacyP2: '✅ 離線可用：無追蹤碼、無廣告、不收集姓名或學校資料。',
+    privacyP2: '✅ 本機運算：無追蹤碼、無廣告、不收集姓名或學校資料。',
     privacyP3: '✅ 開源可查：原始碼完全公開透明，任何人皆可審計。',
     photoBtn: '📸 影相或選取默書範圍',
     testVoiceBtn: '🔊 測試發音',
@@ -34,14 +36,21 @@ export const translations = {
     emptyInputError: '請先輸入或影相辨識默書內容！',
     answerSheetTitle: '📝 答案對照表',
     answerSheetDesc: '請家長根據下方清單，核對小朋友的默書簿：',
-    dictationPlaceholder: '1. 影相後文字會自動顯示於此\n2. 家長可以修改錯字\n3. 每行一句，系統會逐行朗讀'
+    dictationPlaceholder: '1. 影相後文字會自動顯示於此\n2. 家長可以修改錯字\n3. 每行一句，系統會逐行朗讀',
+    systemDefaultVoice: '(系統預設)',
+    voiceLocal: '(本機)',
+    voiceCloud: '(雲端)',
+    ocrOk: '完成',
+    ocrError: '辨識失敗',
+    voiceListLoadError: '語音清單載入失敗，請重試',
+    noVoiceAvailable: '⚠️ 此裝置無該語言的語音包'
   },
   'en': {
     appTitle: 'KidsDictate',
     appSubtitle: 'Client-Side Only · Zero Data Retention · 100% Private',
     privacyTitle: '🔒 Privacy & Security Guarantee',
     privacyP1: '✅ Zero Data Upload: Photos & words are processed entirely in device memory.',
-    privacyP2: '✅ Works Offline: Pure client-side processing with zero network trackers.',
+    privacyP2: '✅ Local Processing: Zero network trackers, zero ads, no telemetry.',
     privacyP3: '✅ Open Source: 100% open-source and auditable code.',
     photoBtn: '📸 Take Photo or Select Image',
     testVoiceBtn: '🔊 Test Voice',
@@ -69,24 +78,48 @@ export const translations = {
     emptyInputError: 'Please enter or scan dictation words first!',
     answerSheetTitle: '📝 Answer Sheet',
     answerSheetDesc: 'Parents can check against the list below:',
-    dictationPlaceholder: '1. OCR text will appear here.\n2. Parents can edit freely.\n3. One sentence per line.'
+    dictationPlaceholder: '1. OCR text will appear here.\n2. Parents can edit freely.\n3. One sentence per line.',
+    systemDefaultVoice: '(System Default)',
+    voiceLocal: '(Local)',
+    voiceCloud: '(Cloud)',
+    ocrOk: 'OK',
+    ocrError: 'Error',
+    voiceListLoadError: 'Failed to load voice list. Please try again.',
+    noVoiceAvailable: '⚠️ No voice available for this language'
   }
 } as const;
 
 export type TranslationKey = keyof typeof translations['zh-HK'];
+
+// [P3-4 修復] 純型別的編譯期檢查：若雙語 Key 不對稱，TSC 將強制報錯且不產生 JS 垃圾
+type KeysOf<T> = keyof T;
+type ZhKeys = KeysOf<typeof translations['zh-HK']>;
+type EnKeys = KeysOf<typeof translations['en']>;
+type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type _EnforceTrue<T extends true> = T;
+type _CheckKeys = _EnforceTrue<AssertEqual<ZhKeys, EnKeys>>; 
 
 export class I18nService {
   private currentLocale: Locale;
   private listeners: Set<(locale: Locale) => void> = new Set();
 
   constructor() {
-    const saved = localStorage.getItem('kidsdictate_locale') as Locale;
-    if (saved && (saved === 'zh-HK' || saved === 'en')) {
-      this.currentLocale = saved;
-    } else {
-      this.currentLocale = navigator.language.startsWith('zh') ? 'zh-HK' : 'en';
-    }
+    this.currentLocale = this.safeGetLocale();
     document.documentElement.lang = this.currentLocale;
+  }
+
+  private safeGetLocale(): Locale {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === 'zh-HK' || saved === 'en') return saved;
+    } catch {} 
+    return navigator.language.startsWith('zh') ? 'zh-HK' : 'en';
+  }
+
+  private safeSetLocale(locale: Locale): void {
+    try { 
+      localStorage.setItem(STORAGE_KEY, locale); 
+    } catch {} 
   }
 
   public getLocale(): Locale { return this.currentLocale; }
@@ -94,25 +127,37 @@ export class I18nService {
   public setLocale(locale: Locale): void {
     if (this.currentLocale === locale) return;
     this.currentLocale = locale;
-    localStorage.setItem('kidsdictate_locale', locale);
+    this.safeSetLocale(locale);
     document.documentElement.lang = locale;
-    this.listeners.forEach(fn => fn(locale));
+    
+    this.listeners.forEach(fn => {
+      try {
+        fn(locale);
+      } catch (e) {
+        // [P3 降級] 避免嚇到打開開發者工具的家長
+        console.warn('[i18n] listener issue:', e);
+      }
+    });
   }
 
   public t(key: TranslationKey, params?: Record<string, string | number>): string {
-    let str: string = translations[this.currentLocale][key] || translations['zh-HK'][key] || key;
+    const dict = translations[this.currentLocale] as Record<TranslationKey, string>;
+    const fallbackDict = translations['zh-HK'] as Record<TranslationKey, string>;
+    let str: string = dict[key] ?? fallbackDict[key] ?? key;
+
     if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
-      });
+      for (const [k, v] of Object.entries(params)) {
+        str = str.split(`{${k}}`).join(String(v));
+      }
     }
     return str;
   }
 
   public onChange(listener: (locale: Locale) => void): () => void {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => { this.listeners.delete(listener); };
   }
 }
 
 export const i18n = new I18nService();
+```[The file '' could not be opened]
