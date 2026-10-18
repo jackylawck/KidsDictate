@@ -43,7 +43,12 @@ export const translations = {
     ocrOk: '完成',
     ocrError: '辨識失敗',
     voiceListLoadError: '語音清單載入失敗，請重試',
-    noVoiceAvailable: '⚠️ 此裝置無該語言的語音包'
+    noVoiceAvailable: '⚠️ 此裝置無該語言的語音包',
+    
+    // [P1 修復] 補齊語系選單的翻譯 Key，解決 UI 上顯示 langZhHK 等原始 Key 名的問題
+    langZhHK: '粵語 (廣東話)',
+    langEnUS: 'English (US)',
+    langEnGB: 'English (UK)'
   },
   'en': {
     appTitle: 'KidsDictate',
@@ -85,7 +90,12 @@ export const translations = {
     ocrOk: 'OK',
     ocrError: 'Error',
     voiceListLoadError: 'Failed to load voice list. Please try again.',
-    noVoiceAvailable: '⚠️ No voice available for this language'
+    noVoiceAvailable: '⚠️ No voice available for this language',
+
+    // [P1 修復] 補齊語系選單的翻譯 Key，與 zh-HK 對稱以通過型別檢查
+    langZhHK: 'Cantonese',
+    langEnUS: 'English (US)',
+    langEnGB: 'English (UK)'
   }
 } as const;
 
@@ -97,7 +107,6 @@ type ZhKeys = KeysOf<typeof translations['zh-HK']>;
 type EnKeys = KeysOf<typeof translations['en']>;
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
-// [P3 修復] 回歸上一輪正確的編譯期斷言，這是在零運行時代價下，確保 Key 完全一致的唯一正解
 type _EnforceTrue<T extends true> = T;
 export type _CheckKeys = _EnforceTrue<AssertEqual<ZhKeys, EnKeys>>;
 
@@ -116,7 +125,6 @@ export class I18nService {
       saved = localStorage.getItem(STORAGE_KEY);
     } catch {}
     
-    // 保留這個更清晰的邏輯流：try 負責讀取，外層負責判斷與降級
     if (saved === 'zh-HK' || saved === 'en') return saved;
     return navigator.language.startsWith('zh') ? 'zh-HK' : 'en';
   }
@@ -149,7 +157,6 @@ export class I18nService {
     const fallbackDict = translations['zh-HK'] as Record<TranslationKey, string>;
     let str: string = dict[key] ?? fallbackDict[key] ?? key;
 
-    // [P2 確認] 正則表達式單次處理大括號替換，避免因循環替換導致的潛在漏洞
     if (params) {
       str = str.replace(/\{(\w+)\}/g, (match, paramKey) => {
         return params[paramKey] !== undefined ? String(params[paramKey]) : match;
