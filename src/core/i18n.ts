@@ -91,13 +91,15 @@ export const translations = {
 
 export type TranslationKey = keyof typeof translations['zh-HK'];
 
-// [P3-4 修復] 純型別的編譯期檢查：若雙語 Key 不對稱，TSC 將強制報錯且不產生 JS 垃圾
+// 純型別編譯期檢查：若雙語 Key 不對稱，TSC 將強制報錯
 type KeysOf<T> = keyof T;
 type ZhKeys = KeysOf<typeof translations['zh-HK']>;
 type EnKeys = KeysOf<typeof translations['en']>;
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+// [P3 修復] 回歸上一輪正確的編譯期斷言，這是在零運行時代價下，確保 Key 完全一致的唯一正解
 type _EnforceTrue<T extends true> = T;
-type _CheckKeys = _EnforceTrue<AssertEqual<ZhKeys, EnKeys>>; 
+export type _CheckKeys = _EnforceTrue<AssertEqual<ZhKeys, EnKeys>>;
 
 export class I18nService {
   private currentLocale: Locale;
@@ -109,10 +111,13 @@ export class I18nService {
   }
 
   private safeGetLocale(): Locale {
+    let saved: string | null = null;
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'zh-HK' || saved === 'en') return saved;
-    } catch {} 
+      saved = localStorage.getItem(STORAGE_KEY);
+    } catch {}
+    
+    // 保留這個更清晰的邏輯流：try 負責讀取，外層負責判斷與降級
+    if (saved === 'zh-HK' || saved === 'en') return saved;
     return navigator.language.startsWith('zh') ? 'zh-HK' : 'en';
   }
 
@@ -134,7 +139,6 @@ export class I18nService {
       try {
         fn(locale);
       } catch (e) {
-        // [P3 降級] 避免嚇到打開開發者工具的家長
         console.warn('[i18n] listener issue:', e);
       }
     });
@@ -145,11 +149,13 @@ export class I18nService {
     const fallbackDict = translations['zh-HK'] as Record<TranslationKey, string>;
     let str: string = dict[key] ?? fallbackDict[key] ?? key;
 
+    // [P2 確認] 正則表達式單次處理大括號替換，避免因循環替換導致的潛在漏洞
     if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        str = str.split(`{${k}}`).join(String(v));
-      }
+      str = str.replace(/\{(\w+)\}/g, (match, paramKey) => {
+        return params[paramKey] !== undefined ? String(params[paramKey]) : match;
+      });
     }
+    
     return str;
   }
 
@@ -160,4 +166,3 @@ export class I18nService {
 }
 
 export const i18n = new I18nService();
-```[The file '' could not be opened]
