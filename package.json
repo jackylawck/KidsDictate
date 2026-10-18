@@ -14,7 +14,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "clean": "rimraf js css",
+    "clean": "rimraf js/core css",
     "dev": "concurrently --kill-others-on-fail \"tsc -w\" \"tailwindcss -i ./src/input.css -o ./css/app.css --watch\"",
     "build": "npm run clean && tsc && tailwindcss -i ./src/input.css -o ./css/app.css --minify",
     "serve": "npx serve -s ."
