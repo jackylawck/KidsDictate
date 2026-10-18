@@ -1,0 +1,10 @@
+{
+  "name": "kidsdictate",
+  "version": "1.0.0",
+  "description": "Privacy-first offline dictation assistant for primary school kids.",
+  "scripts": {
+    "dev:css": "tailwindcss -i ./src/input.css -o ./css/app.css --watch",
+    "build:css": "tailwindcss -i ./src/input.css -o ./css/app.css --minify",
+    "serve": "serve ."
+  }
+}
