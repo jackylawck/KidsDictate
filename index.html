@@ -2,17 +2,25 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; img-src 'self' blob: data:; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';">
-  <title>童心默書 KidsDictate</title>
+  <!-- [P2/a11y 修復] 移除禁止縮放，保留 viewport-fit=cover，讓小朋友能自由放大畫面 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f8fafc">
+  
+  <!-- [P1 修復] 絕對嚴格的 CSP：移除所有 unsafe-inline，移除外部連線，堅守零外部依賴與自託管 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; img-src 'self' blob: data:; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';">
+  
+  <title data-i18n="appTitle">童心默書 KidsDictate</title>
   <link rel="stylesheet" href="css/app.css">
   <script src="vendor/tesseract.min.js" defer></script>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800 p-4">
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen pt-safe-top pb-safe-bottom flex flex-col overscroll-none">
   
-  <div id="toastContainer" aria-live="polite" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-[90%] max-w-md print:hidden"></div>
+  <div id="toastContainer" aria-live="polite" class="fixed top-safe-top left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-[90%] max-w-md print:hidden mt-4"></div>
 
-  <main class="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-6 space-y-6 print:max-w-none print:p-0 print:shadow-none">
+  <main class="flex-grow p-4 max-w-lg mx-auto w-full space-y-6 print:max-w-none print:p-0 print:shadow-none">
     
     <header class="text-center print:hidden">
       <div class="flex justify-end gap-2 text-xs font-bold text-slate-500 mb-2">
@@ -27,13 +35,14 @@
         <summary data-i18n="privacyTitle" class="font-bold text-slate-700 select-none focus-visible:outline-2 focus-visible:outline-indigo-500 focus-visible:outline-offset-2 rounded group-open:text-indigo-600">🔒 隱私與安全說明 (家長請看)</summary>
         <div class="mt-3 space-y-2 text-slate-600 text-xs leading-relaxed">
           <p data-i18n="privacyP1">✅ 零資料上傳：照片與詞表只在手機記憶體內處理，絕對不上傳伺服器。</p>
-          <p data-i18n="privacyP2">✅ 離線可用：無追蹤碼、無廣告、不收集姓名或學校資料。</p>
+          <!-- [P3 修復] HTML 與 i18n 字典同步，避免閃爍 -->
+          <p data-i18n="privacyP2">✅ 本機運算：無追蹤碼、無廣告、不收集姓名或學校資料。</p>
           <p data-i18n="privacyP3">✅ 開源可查：原始碼完全公開透明，任何人皆可審計。</p>
         </div>
       </details>
     </header>
 
-    <section class="border-2 border-dashed border-indigo-200 rounded-xl p-5 text-center bg-indigo-50/40 print:hidden">
+    <section class="border-2 border-dashed border-indigo-200 rounded-xl p-5 text-center bg-indigo-50/40 print:hidden transition hover:bg-indigo-50/80">
       <input type="file" id="imageInput" accept="image/*" capture="environment" class="hidden">
       <label for="imageInput" class="cursor-pointer block">
         <div class="text-3xl mb-1">📸</div>
@@ -48,40 +57,41 @@
     </section>
 
     <section class="print:hidden">
-      <!-- 【修復 1】補上 data-i18n="dictationPlaceholder"，讓雙語系統能自動填入提示文字 -->
-      <textarea id="dictationText" data-i18n="dictationPlaceholder" rows="6" class="w-full border border-slate-300 rounded-xl p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+      <textarea id="dictationText" data-i18n="dictationPlaceholder" rows="6" class="w-full border border-slate-300 rounded-xl p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
     </section>
 
     <section class="grid grid-cols-2 gap-3 bg-slate-100/80 p-4 rounded-xl text-sm print:hidden">
       <div>
         <div class="flex justify-between items-end mb-1">
           <label data-i18n="langLabel" class="block text-slate-600 font-medium text-xs">語言發音</label>
-          <button id="testVoiceBtn" data-i18n="testVoiceBtn" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded hover:bg-indigo-100 transition">🔊 測試發音</button>
+          <button id="testVoiceBtn" data-i18n="testVoiceBtn" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded hover:bg-indigo-100 transition active:scale-95">🔊 測試發音</button>
         </div>
-        <select id="langSelect" class="w-full p-2 border rounded-lg bg-white text-sm focus:outline-none">
-          <option value="zh-HK" selected>粵語 (廣東話)</option>
-          <option value="en-US">English (US)</option>
-          <option value="en-GB">English (UK)</option>
+        <select id="langSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <!-- [P3 修復] 預留 data-i18n 給語言選項，為未來的完整翻譯鋪路 -->
+          <option value="zh-HK" selected data-i18n="langZhHK">粵語 (廣東話)</option>
+          <option value="en-US" data-i18n="langEnUS">English (US)</option>
+          <option value="en-GB" data-i18n="langEnGB">English (UK)</option>
         </select>
       </div>
       <div>
         <label data-i18n="repeatLabel" class="block text-slate-600 font-medium mb-1 text-xs">重複次數</label>
-        <select id="repeatSelect" class="w-full p-2 border rounded-lg bg-white text-sm focus:outline-none">
+        <select id="repeatSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <option value="1">1</option>
           <option value="2">2</option>
           <option value="3" selected>3</option>
         </select>
       </div>
-      <div>
-        <div class="flex justify-between text-xs text-slate-600 font-medium mb-1">
+      <div class="col-span-2 sm:col-span-1 pt-1">
+        <div class="flex justify-between text-xs text-slate-600 font-medium mb-2">
           <span data-i18n="speedLabel">語速調整</span>
           <span id="rateLabel" class="text-indigo-600 font-bold">0.8x</span>
         </div>
-        <input type="range" id="rateRange" min="0.5" max="1.1" step="0.05" value="0.8" class="w-full accent-indigo-600">
+        <input type="range" id="rateRange" min="0.5" max="1.1" step="0.05" value="0.8" class="w-full accent-indigo-600 py-2 cursor-pointer">
       </div>
-      <div>
+      <div class="col-span-2 sm:col-span-1">
         <label data-i18n="pauseTimeLabel" class="block text-slate-600 font-medium mb-1 text-xs">書寫停頓 (秒)</label>
-        <input type="number" id="pauseInput" value="8" min="3" max="30" class="w-full p-1.5 border rounded-lg bg-white text-sm text-center">
+        <!-- [P2/P3 修復] 移除無效 pattern，並將文字大小設為 text-base，徹底根除 iOS 輸入框聚焦自動放大的體驗痛點 -->
+        <input type="number" id="pauseInput" value="8" min="3" max="30" inputmode="numeric" class="w-full p-2 border rounded-lg bg-white text-base text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
       </div>
     </section>
 
@@ -94,10 +104,9 @@
         
         <div id="wordDisplay" class="text-3xl font-black text-slate-800 tracking-wide py-4 min-h-[64px] flex items-center justify-center"></div>
         
-        <!-- 【修復 2】補回防偷看遮蔽開關，這是默書應用的靈魂防線 -->
         <div class="flex justify-center items-center gap-2 pt-1">
-          <input type="checkbox" id="maskToggle" checked class="accent-indigo-600 w-4 h-4 rounded cursor-pointer">
-          <label for="maskToggle" data-i18n="maskLabel" class="text-xs text-slate-600 font-medium cursor-pointer select-none">默書時隱藏文字（防偷看）</label>
+          <input type="checkbox" id="maskToggle" checked class="accent-indigo-600 w-5 h-5 rounded cursor-pointer">
+          <label for="maskToggle" data-i18n="maskLabel" class="text-sm text-slate-600 font-medium cursor-pointer select-none">默書時隱藏文字（防偷看）</label>
         </div>
 
         <div id="countdownVisual" class="hidden flex-col items-center gap-1">
@@ -107,17 +116,17 @@
           </div>
         </div>
 
-        <div class="flex justify-center gap-2 pt-4 border-t border-indigo-100/50 mt-4">
-          <button id="prevBtn" data-i18n="prevBtn" class="flex-1 py-2.5 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-50">⬅️ 上一題</button>
-          <button id="pauseBtn" data-i18n="pauseBtn" class="px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm">⏸ 暫停</button>
-          <button id="replayBtn" data-i18n="replayBtn" class="flex-1 py-2.5 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-200">🔁 重聽這題</button>
-          <button id="skipBtn" data-i18n="skipBtn" class="flex-1 py-2.5 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-50">⏭ 跳過</button>
+        <div class="flex flex-wrap justify-center gap-2 pt-4 border-t border-indigo-100/50 mt-4">
+          <button id="prevBtn" data-i18n="prevBtn" class="flex-1 min-w-[80px] py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-50 active:bg-indigo-100 transition">⬅️ 上一題</button>
+          <button id="pauseBtn" data-i18n="pauseBtn" class="px-5 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition">⏸ 暫停</button>
+          <button id="replayBtn" data-i18n="replayBtn" class="flex-1 min-w-[80px] py-3 bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-200 active:bg-indigo-300 transition">🔁 重聽這題</button>
+          <button id="skipBtn" data-i18n="skipBtn" class="flex-1 min-w-[80px] py-3 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-50 active:bg-indigo-100 transition">⏭ 跳過</button>
         </div>
       </div>
 
       <div class="flex gap-2">
-        <button id="startBtn" data-i18n="startBtn" class="flex-1 py-3.5 bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition">▶ 開始默書</button>
-        <button id="stopBtn" data-i18n="stopBtn" class="hidden flex-1 py-3.5 bg-rose-600 text-white font-bold rounded-xl shadow-md hover:bg-rose-700 transition">⏹ 結束默書</button>
+        <button id="startBtn" data-i18n="startBtn" class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 active:scale-[0.98] transition">▶ 開始默書</button>
+        <button id="stopBtn" data-i18n="stopBtn" class="hidden flex-1 py-4 bg-rose-600 text-white font-bold rounded-xl shadow-md hover:bg-rose-700 active:scale-[0.98] transition">⏹ 結束默書</button>
       </div>
     </section>
 
@@ -125,13 +134,13 @@
     <section id="answerSheet" class="hidden mt-6 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-6 shadow-sm print:m-0 print:border-none print:bg-white print:p-0">
       <div class="flex justify-between items-center mb-4 print:hidden">
         <h2 data-i18n="answerSheetTitle" class="text-xl font-black text-emerald-700">📝 答案對照表</h2>
-        <button id="closeAnswerBtn" data-i18n="closeBtn" class="text-sm font-bold text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-lg">關閉</button>
+        <button id="closeAnswerBtn" data-i18n="closeBtn" class="text-sm font-bold text-emerald-600 bg-emerald-100 px-4 py-2 rounded-lg hover:bg-emerald-200 transition">關閉</button>
       </div>
       <p data-i18n="answerSheetDesc" class="text-xs text-emerald-600 mb-4 print:hidden">請家長根據下方清單，核對小朋友的默書簿：</p>
       
       <div id="answerList" class="bg-white rounded-xl p-4 shadow-inner max-h-96 overflow-y-auto print:max-h-full print:overflow-visible print:shadow-none print:p-0"></div>
       
-      <button id="printAnswerBtn" data-i18n="printBtn" class="w-full mt-4 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-md hover:bg-emerald-700 transition print:hidden">🖨️ 列印答案</button>
+      <button id="printAnswerBtn" data-i18n="printBtn" class="w-full mt-4 py-4 bg-emerald-600 text-white font-bold rounded-xl shadow-md hover:bg-emerald-700 active:scale-[0.98] transition print:hidden">🖨️ 列印答案</button>
     </section>
   </main>
 
