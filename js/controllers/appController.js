@@ -25,9 +25,9 @@ export class AppController {
     // 狀態快取與並發鎖
     this._populatingVoices = null; 
     this._unsubI18n = null;        
-    this._lastRepeatStatus = '';   // [P2-2] 記住朗讀進度，以便從暫停中恢復
-    this._ocrToken = 0;            // [P3-1] 防止連續上傳的進度與結果互蓋
-    this._ocrHideTimer = null;     // [P3-2] 防止連續上傳時，舊 timer 提早關閉 UI
+    this._lastRepeatStatus = '';   // 記住朗讀進度，以便從暫停中恢復
+    this._ocrToken = 0;            // 防止連續上傳的進度與結果互蓋
+    this._ocrHideTimer = null;     // 防止連續上傳時，舊 timer 提早關閉 UI
 
     this.initElements();
     this.bindEvents();
@@ -90,7 +90,7 @@ export class AppController {
       if (this.el.pauseBtn) {
         this.el.pauseBtn.textContent = this.speechService.isPaused() ? i18n.t('resumeBtn') : i18n.t('pauseBtn');
       }
-      // [P2-3] 動態文字更新：恢復暫停/朗讀狀態
+      // 動態文字更新：恢復暫停/朗讀狀態
       if (this.el.repeatStatus) {
         this.el.repeatStatus.textContent = this.speechService.isPaused() ? i18n.t('pausedStatus') : this._lastRepeatStatus;
       }
@@ -108,7 +108,7 @@ export class AppController {
     this.el.langZhBtn?.setAttribute('aria-pressed', String(locale === 'zh-HK'));
     this.el.langEnBtn?.setAttribute('aria-pressed', String(locale === 'en'));
 
-    // [P2-3] 切換語言時，重新填充語音選單，讓「(本機)/(雲端)」也跟著翻譯
+    // 切換語言時，重新填充語音選單，讓「(本機)/(雲端)」也跟著翻譯
     this.populateVoices();
   }
 
@@ -122,24 +122,26 @@ export class AppController {
     }
   }
 
+  // [修復] 加上 ?. 守衛，保護 SPA 環境下 DOM 已被移除時的意外崩潰
   setPlaybackUI(isPlaying) {
-    this.el.startBtn.classList.toggle('hidden', isPlaying);
-    this.el.stopBtn.classList.toggle('hidden', !isPlaying);
-    this.el.playingCard.classList.toggle('hidden', !isPlaying);
-    this.el.testVoiceBtn.disabled = isPlaying;
+    this.el.startBtn?.classList.toggle('hidden', isPlaying);
+    this.el.stopBtn?.classList.toggle('hidden', !isPlaying);
+    this.el.playingCard?.classList.toggle('hidden', !isPlaying);
+    if (this.el.testVoiceBtn) this.el.testVoiceBtn.disabled = isPlaying;
     
     if (isPlaying) {
-      this.el.answerSheet.classList.add('hidden');
-      this.el.answerList.replaceChildren();
+      this.el.answerSheet?.classList.add('hidden');
+      this.el.answerList?.replaceChildren();
       this.resetPauseButtonUI();
     }
   }
 
-  // [P2-2] 解除暫停時，精準恢復原有的朗讀狀態顯示
+  // 解除暫停時，精準恢復原有的朗讀狀態顯示
   resetPauseButtonUI() {
+    if (!this.el.pauseBtn) return;
     this.el.pauseBtn.textContent = i18n.t('pauseBtn');
     this.el.pauseBtn.className = 'px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-bold shadow-sm';
-    if (this._lastRepeatStatus && this.speechService.isActive && !this.speechService.isPaused()) {
+    if (this._lastRepeatStatus && this.speechService.isActive && !this.speechService.isPaused() && this.el.repeatStatus) {
       this.el.repeatStatus.textContent = this._lastRepeatStatus;
     }
   }
@@ -162,17 +164,26 @@ export class AppController {
         defaultOpt.textContent = i18n.t('systemDefaultVoice');
         this.el.voiceSelect.appendChild(defaultOpt);
 
+        // [修復] 設備沒語音包時，給予明確的 Disabled 選項提示
+        if (list.length === 0) {
+          const noVoiceOpt = document.createElement('option');
+          noVoiceOpt.disabled = true;
+          noVoiceOpt.textContent = i18n.t('noVoiceAvailable');
+          this.el.voiceSelect.appendChild(noVoiceOpt);
+        }
+
         list.forEach(v => {
           const opt = document.createElement('option');
           opt.value = v.name;
           const typeStr = v.localService === true ? i18n.t('voiceLocal') : (v.localService === false ? i18n.t('voiceCloud') : '');
-          let displayName = `${v.name} ${typeStr}`.trim();
-          if (displayName.length > 30) displayName = displayName.substring(0, 27) + '...';
+          const langTag = v.lang ? `(${v.lang})` : ''; 
+          let displayName = `${v.name} ${langTag} ${typeStr}`.trim();
+          if (displayName.length > 40) displayName = displayName.substring(0, 37) + '...';
           opt.textContent = displayName;
           this.el.voiceSelect.appendChild(opt);
         });
 
-        // [P2-1] 防禦原生 DOM value 覆蓋行為：顯式回退到系統預設
+        // 防禦原生 DOM value 覆蓋行為：顯式回退到系統預設
         if (prev && [...this.el.voiceSelect.options].some(o => o.value === prev)) {
           this.el.voiceSelect.value = prev;
         } else {
@@ -207,7 +218,6 @@ export class AppController {
       const file = e.target.files[0];
       if (!file) return;
       
-      // [P3-1 & P3-2] 防禦 OCR 連續點擊並發覆蓋
       const token = ++this._ocrToken;
       if (this._ocrHideTimer) clearTimeout(this._ocrHideTimer);
 
@@ -243,7 +253,7 @@ export class AppController {
       const text = lang.startsWith('en') ? 'Testing voice setup.' : '測試語音發音，一二三四';
       
       this.el.testVoiceBtn.disabled = true;
-      const unlockBtn = () => { this.el.testVoiceBtn.disabled = false; };
+      const unlockBtn = () => { if (this.el.testVoiceBtn) this.el.testVoiceBtn.disabled = false; };
       try {
         await this.testEngine.play(text, { lang, rate, voiceName }, {
           onEnd: unlockBtn, onInterrupted: unlockBtn, onError: (err) => { this.showToast(err, 'error'); unlockBtn(); }
@@ -268,7 +278,7 @@ export class AppController {
         if (this.speechService.pause()) {
           this.el.pauseBtn.textContent = i18n.t('resumeBtn');
           this.el.pauseBtn.className = 'px-4 py-2 bg-amber-50 text-amber-600 border border-amber-300 rounded-lg text-sm font-bold shadow-sm';
-          this.el.repeatStatus.textContent = i18n.t('pausedStatus');
+          if (this.el.repeatStatus) this.el.repeatStatus.textContent = i18n.t('pausedStatus');
         }
       }
     });
@@ -278,6 +288,7 @@ export class AppController {
   }
 
   showToast(message, type = 'info') {
+    if (!this.el.toastContainer) return;
     const el = document.createElement('div');
     const bg = type === 'error' ? 'bg-rose-600' : (type === 'success' ? 'bg-emerald-600' : 'bg-slate-800');
     el.className = `px-4 py-3 rounded-xl shadow-lg text-sm font-bold opacity-0 transition-opacity duration-300 ${bg} text-white`;
@@ -290,20 +301,21 @@ export class AppController {
   startCountdown(totalSeconds) {
     this.totalPauseSec = totalSeconds;
     this.remainingSec = totalSeconds;
-    this.el.countdownVisual.classList.remove('hidden');
-    this.el.countdownText.textContent = i18n.t('writingStatus', { sec: this.remainingSec });
-    this.el.countdownBar.style.width = '100%';
+    this.el.countdownVisual?.classList.remove('hidden');
+    if (this.el.countdownText) this.el.countdownText.textContent = i18n.t('writingStatus', { sec: this.remainingSec });
+    if (this.el.countdownBar) this.el.countdownBar.style.width = '100%';
+    
     clearInterval(this.countdownInterval);
     this.countdownInterval = setInterval(() => {
       if (this.speechService.isPaused()) return; 
       this.remainingSec--;
       if (this.remainingSec < 0) {
         clearInterval(this.countdownInterval);
-        this.el.countdownVisual.classList.add('hidden');
+        this.el.countdownVisual?.classList.add('hidden');
         return;
       }
-      this.el.countdownText.textContent = i18n.t('writingStatus', { sec: this.remainingSec });
-      this.el.countdownBar.style.width = `${(this.remainingSec / this.totalPauseSec) * 100}%`;
+      if (this.el.countdownText) this.el.countdownText.textContent = i18n.t('writingStatus', { sec: this.remainingSec });
+      if (this.el.countdownBar) this.el.countdownBar.style.width = `${(this.remainingSec / this.totalPauseSec) * 100}%`;
     }, 1000);
   }
 
@@ -311,8 +323,15 @@ export class AppController {
     const items = this.el.dictationText.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
     if (items.length === 0) return this.showToast(i18n.t('emptyInputError'), 'error');
 
+    // [修復] UX 優化：若該語言真的沒語音包，按「開始」時直接擋下並提示
+    const lang = this.el.langSelect.value;
+    const voicesForLang = this.engine.getVoiceListForLang?.(lang) ?? [];
+    if (voicesForLang.length === 0) {
+      return this.showToast(i18n.t('noVoiceAvailable'), 'error');
+    }
+
     const config = {
-      lang: this.el.langSelect.value,
+      lang: lang,
       voiceName: this.el.voiceSelect.value, 
       rate: parseFloat(this.el.rateRange.value),
       repeats: parseInt(this.el.repeatSelect.value, 10),
@@ -324,22 +343,22 @@ export class AppController {
     this.speechService.startQueue(items, config, {
       onEngineInit: () => { 
         this._lastRepeatStatus = i18n.t('initVoiceStatus');
-        this.el.repeatStatus.textContent = this._lastRepeatStatus;
+        if (this.el.repeatStatus) this.el.repeatStatus.textContent = this._lastRepeatStatus;
       },
       onStepChange: (data) => {
         clearInterval(this.countdownInterval);
-        this.el.countdownVisual.classList.add('hidden');
-        this.el.progressIndex.textContent = i18n.t('progressText', { current: data.index + 1, total: data.total });
+        this.el.countdownVisual?.classList.add('hidden');
+        if (this.el.progressIndex) this.el.progressIndex.textContent = i18n.t('progressText', { current: data.index + 1, total: data.total });
         
         this._lastRepeatStatus = i18n.t('readingStatus', { current: 1, total: data.totalRepeats });
-        this.el.repeatStatus.textContent = this._lastRepeatStatus;
+        if (this.el.repeatStatus) this.el.repeatStatus.textContent = this._lastRepeatStatus;
         
         this.currentWordText = data.text;
         this.renderWordDisplay();
       },
       onRepeat: (current, total) => { 
         this._lastRepeatStatus = i18n.t('readingStatus', { current, total });
-        this.el.repeatStatus.textContent = this._lastRepeatStatus;
+        if (this.el.repeatStatus) this.el.repeatStatus.textContent = this._lastRepeatStatus;
       },
       onWritingPause: (seconds) => { this.startCountdown(seconds); },
       onComplete: () => {
@@ -355,16 +374,16 @@ export class AppController {
   }
 
   handleStop() {
-    // 避免重複執行（例如 onError 和 catch 雙重觸發）
     if (!this.speechService.isActive) return;
     this.speechService.stop();
     clearInterval(this.countdownInterval);
-    this.el.countdownVisual.classList.add('hidden');
+    this.el.countdownVisual?.classList.add('hidden');
     this.setPlaybackUI(false);
   }
 
   showAnswerSheet(items) {
     const list = this.el.answerList;
+    if (!list) return;
     list.replaceChildren();
     items.forEach((item, i) => {
       const row = document.createElement('div');
@@ -378,12 +397,18 @@ export class AppController {
       row.append(num, word);
       list.appendChild(row);
     });
-    this.el.answerSheet.classList.remove('hidden');
+    this.el.answerSheet?.classList.remove('hidden');
   }
 
+  // [修復] 聯動卸載，包含 DOM 防禦
   destroy() {
     if (this._unsubI18n) this._unsubI18n();
-    this.handleStop();
-    // 單頁應用暫無 router，若未來擴充 SPA，需手動 removeEventListener 解除 DOM 事件綁定
+    try { 
+      this.handleStop(); 
+    } catch (e) {
+      // 容錯防禦：即使 handleStop 發生意外也不影響引擎的卸載
+    }
+    this.engine.destroy?.();
+    this.testEngine.destroy?.();
   }
 }
