@@ -15,12 +15,12 @@
 #### 繁體中文
 這是我為了陪伴兒子準備默書而開發的非商業個人專案！為了提升孩子的學習樂趣，我親手打造了這個結合邊緣光學辨識（Edge OCR）、Web Speech 語音合成與嚴格隱私架構的輔助工具。
 
-無論是英文生字還是中文詞語，只需用手機拍下默書範圍，系統就能在設備本地完成辨識並自動為孩子朗讀。希望透過這個安全、流暢且無廣告的工具，能讓孩子在默書練習中建立自信，共同寫下無價的親子陪伴回憶！
+無論是英文生字還是中文（粵語/普通話）詞語，您可以直接手動輸入，或用手機拍下簡單的默書範圍，系統就能在設備本地完成處理並自動為孩子朗讀。希望透過這個安全、流暢且無廣告的工具，能讓孩子在默書練習中建立自信，共同寫下無價的親子陪伴回憶！
 
 #### English
 This is a non-commercial, personal project developed to accompany my son in preparing for his dictation tests! To make learning more enjoyable, I personally engineered this assistive tool that combines Edge OCR, Web Speech synthesis, and a strict privacy-first architecture.
 
-Whether it's English vocabulary or Chinese phrases, simply snap a photo of the dictation list with your phone, and the system will process the text entirely on-device and dictate it automatically. I hope this safe, smooth, and ad-free application helps children build confidence in their dictation practice, creating priceless parent-child memories together!
+Whether it's English vocabulary or Chinese (Cantonese/Mandarin) phrases, you can manually input the text or simply snap a photo of a simple dictation list. The system processes the text entirely on-device and dictates it automatically. I hope this safe, smooth, and ad-free application helps children build confidence in their dictation practice, creating priceless parent-child memories together!
 
 ---
 
@@ -29,18 +29,18 @@ Whether it's English vocabulary or Chinese phrases, simply snap a photo of the d
 ### 🌟 項目願景與理念
 **KidsDictate（童心默書）** 是一個以純前端靜態架構（Static-First）驅動的智能默書工具。
 
-市面上許多學習應用程式往往需要將相片或文字上傳至雲端伺服器進行處理，這引發了潛在的隱私與資料外洩疑慮。KidsDictate 貫徹 **Privacy-by-Design** 原則，運用 WebAssembly (WASM) 與本機瀏覽器 API，確保所有的光學字元辨識（OCR）與語音合成（TTS）都在使用者的設備（手機或平板）記憶體內完成。**零資料上傳、無追蹤碼、完全保護學童隱私。**
+市面上許多學習應用程式往往需要將相片或文字上傳至雲端伺服器進行處理，這引發了潛在的隱私與資料外洩疑慮。KidsDictate 貫徹 **Privacy-by-Design** 原則，運用 WebAssembly (WASM) 與本機瀏覽器 API，確保所有的運算、光學字元辨識（OCR）與語音合成（TTS）都在使用者的設備（手機或平板）記憶體內完成。**零資料上傳、無追蹤碼、完全保護學童隱私。**
 
 ---
 
 ### ✨ 核心功能與特色
 
-1. **邊緣光學字元辨識 (Edge OCR)**
-   - 內建 `Tesseract.js` WebAssembly 核心，將語言模型（包含繁體中文與英文）完全自託管。
-   - 支援 Web Worker 非同步處理與 `OffscreenCanvas` 影像優化，拍照後即時在手機端將圖片轉換為文字，無需依賴任何外部 API。
+1. **邊緣光學字元辨識 (Edge OCR) 與 AI 逃生門**
+   - 內建 `Tesseract.js` WebAssembly 核心，支援即時的本機圖片轉文字功能。
+   - **誠實的系統限制與 AI 輔助**：為堅守不將相片上傳伺服器的隱私底線，本機 OCR 引擎在面對複雜版面（如中英拼音夾雜、手寫塗鴉、複雜插圖）時能力有限。為此，系統特別提供「AI 輔助提示詞」的一鍵複製功能，引導家長使用自己的外部 AI 工具（如 ChatGPT/Claude）來處理極限情境。
 
 2. **智慧語音狀態機 (Smart Speech Engine)**
-   - 深度整合 Web Speech API，支援多語系（粵語、US/UK 英文）動態切換。
+   - 深度整合 Web Speech API，支援多語系（**粵語、普通話、US/UK 英文**）動態切換。
    - 具備防抖與中斷恢復機制的非同步語音佇列管理，提供家長自訂「重複次數」、「語速」及「書寫停頓倒數」，完美模擬真實默書情境。
 
 3. **零資料滯留與極限防禦 (Zero-Data Retention & Strict Security)**
@@ -99,19 +99,19 @@ npm run serve
 
 **KidsDictate** is a client-side, Static-First smart dictation tool.
 
-Many educational apps on the market require users to upload photos or text to cloud servers for processing, raising significant privacy and data leakage concerns. KidsDictate is engineered with **Privacy-by-Design** at its core. By leveraging WebAssembly (WASM) and native browser APIs, all Optical Character Recognition (OCR) and Text-to-Speech (TTS) processes are executed entirely within the device's memory. **Zero data upload, zero tracking codes, and absolute protection of children's privacy.**
+Many educational apps on the market require users to upload photos or text to cloud servers for processing, raising significant privacy and data leakage concerns. KidsDictate is engineered with **Privacy-by-Design** at its core. By leveraging WebAssembly (WASM) and native browser APIs, all computations, Optical Character Recognition (OCR), and Text-to-Speech (TTS) processes are executed entirely within the device's memory. **Zero data upload, zero tracking codes, and absolute protection of children's privacy.**
 
 ---
 
 ### ✨ Key Features
 
-1. **Edge Optical Character Recognition (Edge OCR)**
-* Powered by a self-hosted `Tesseract.js` WebAssembly core with embedded language models (Traditional Chinese & English).
-* Utilizes Web Workers and `OffscreenCanvas` for asynchronous image processing, converting photos to text instantly on your phone without relying on external APIs.
+1. **Edge Optical Character Recognition (Edge OCR) & AI Fallback**
+* Powered by a self-hosted `Tesseract.js` WebAssembly core for strictly on-device image-to-text processing.
+* **Honest Limitations & AI Assistant**: To uphold our strict zero-upload privacy promise, the local scanning engine is naturally limited when facing complex layouts (e.g., mixed pinyin, handwriting, complex backgrounds). For these edge cases, the app provides a 1-click prompt generator, empowering parents to securely use their preferred external AI (like ChatGPT/Claude) without compromising the app's privacy integrity.
 
 
 2. **Smart Speech State Machine**
-* Deep integration with the Web Speech API, supporting dynamic multi-language switching (Cantonese, US English, UK English).
+* Deep integration with the Web Speech API, supporting dynamic multi-language switching (**Cantonese, Mandarin, US English, UK English**).
 * Features an asynchronous speech queue with robust interrupt recovery, allowing parents to customize "Repetitions", "Speech Rate", and "Writing Pause Countdown" to perfectly simulate a real dictation environment.
 
 
@@ -161,3 +161,4 @@ npm run serve
 ### 📄 License
 
 This project is licensed under the [MIT License](https://www.google.com/search?q=LICENSE).
+
