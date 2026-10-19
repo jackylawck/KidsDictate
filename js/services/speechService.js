@@ -1,220 +1,257 @@
-export class SpeechService {
-  constructor(engine) {
-    this.engine = engine;
-    this.queue = [];
-    this.idx = 0;
-    this.repeat = 0;
-    this.isActive = false;
-    this.isQueuePaused = false;
-    this.timers = new Set();
-    this._queueToken = 0;
-    this._pausedTask = null; // 記錄暫停時未完成的計時任務
-    this._resumeAfterPause = null; // 記錄 await 期間被暫停後，恢復時該執行的任務
+export class SpeechEngine {
+  constructor(synth = window.speechSynthesis, Utterance = window.SpeechSynthesisUtterance) {
+    this.synth = synth;
+    this.Utterance = Utterance;
+    this.isSupported = !!(synth && Utterance);
+    this.voices = [];
+    this.isVoicesReady = false;
+    this.currentUtterance = null;
+    this.heartbeatTimer = null;
+    this.watchdog = null;
+    this._voicesPromise = null;
+    this._token = 0; 
+    this._pauseRequested = false;
+    this._lateListener = null; 
+    this._destroyed = false;   
   }
 
-  schedule(fn, ms) {
-    const start = performance.now(); // 使用不受系統時間調整影響的計時器
-    const t = setTimeout(() => {
-      this.timers.delete(t);
-      this._pausedTask = null;
-      if (this.isActive && !this.isQueuePaused) {
-        // [P3-2 優化] 防禦未來 fn 若變為同步邏輯時拋出未捕獲異常
-        try {
-          fn();
-        } catch (e) {
-          console.error('[SpeechService] scheduled task error:', e);
+  initVoices() {
+    if (!this.isSupported || this._destroyed) return Promise.resolve([]);
+    if (this._voicesPromise) return this._voicesPromise;
+
+    this._voicesPromise = new Promise((resolve) => {
+      const tryResolve = () => {
+        if (this._destroyed) return false; 
+        
+        const list = this.synth.getVoices();
+        if (list.length === 0) return false; 
+        
+        this.voices = list;
+        this.isVoicesReady = true;
+        this.synth.removeEventListener('voiceschanged', tryResolve);
+        resolve(this.voices);
+        
+        if (typeof this.onVoicesReady === 'function') {
+          this.onVoicesReady();
         }
-      }
-    }, ms);
-    this.timers.add(t);
-    this._pausedTask = { fn, remaining: ms, start, timerId: t };
+        return true;
+      };
+
+      if (tryResolve()) return;
+      this.synth.addEventListener('voiceschanged', tryResolve);
+
+      setTimeout(() => {
+        if (this._destroyed) return; 
+        if (this.isVoicesReady) return;
+        
+        this.synth.removeEventListener('voiceschanged', tryResolve);
+        this.isVoicesReady = true; 
+        this.voices = [];
+        resolve([]);
+
+        const late = () => {
+          if (this._destroyed) return; 
+          const list = this.synth.getVoices();
+          if (list.length === 0) return;
+          
+          this.voices = list;
+          this.isVoicesReady = true;
+          this.synth.removeEventListener('voiceschanged', late);
+          this._lateListener = null; 
+          
+          if (typeof this.onVoicesReady === 'function') {
+            this.onVoicesReady();
+          }
+        };
+        
+        this._lateListener = late; 
+        this.synth.addEventListener('voiceschanged', late);
+      }, 3000);
+    });
+    return this._voicesPromise;
   }
 
-  clearQueueTimers() {
-    for (const t of this.timers) clearTimeout(t);
-    this.timers.clear();
-    this._pausedTask = null;
-    this._resumeAfterPause = null; // 清理計時器時一併清理暫掛任務
-  }
+  getVoiceListForLang(langCode) {
+    const target = langCode.toLowerCase();
+    const norm = v => (v.lang || '').toLowerCase().replace('_', '-');
+    const base = target.split('-')[0];
 
-  // 重新命名以精確反映職責：導航準備
-  _prepareForNavigation() {
-    // 跳過/重播/上一題在暫停狀態下會隱式恢復佇列，
-    // UI 層的 resetPauseButtonUI() 會同步更新暫停按鈕文字。
-    this.isQueuePaused = false;
-    this.clearQueueTimers();
-    
-    // 此處 engine.stop() 與後續 speakCurrent() 的 engine.play() 內部的 stop() 冗餘，
-    // 但保留以確保 _prepareForNavigation 獨立完整，不依賴調用方的後續行為。
-    this.engine.stop();
-    this.repeat = 0;
-  }
-
-  // 統一處理錯誤與中斷時的清理
-  _abortQueue(token) {
-    if (token !== this._queueToken) return false;
-    this.isActive = false;
-    this.isQueuePaused = false;
-    this.clearQueueTimers();
-    
-    // 不調用 engine.stop()：
-    // onError/onInterrupted 由 engine.play 的回調觸發，此時 SpeechEngine 內部已 cleanup()
-    // （currentUtterance=null、stopHeartbeat 等），再調 stop() 只是多一次 _token 遞增，語義上不必。
-    return true;
-  }
-
-  async startQueue(items, config, callbacks) {
-    this.stop();
-    const token = ++this._queueToken;
-    
-    // [P3-1 優化] 防禦性淺拷貝：註明 items 必須是 string[]，若未來改為物件陣列需改為深拷貝
-    this.queue = [...items];
-    
-    this.config = config;
-    this.callbacks = callbacks;
-    this.idx = 0;
-    this.repeat = 0;
-    this.isActive = true;
-    this.isQueuePaused = false;
-    this._resumeAfterPause = null;
-
-    callbacks.onEngineInit?.();
-    await this.engine.initVoices();
-    if (token !== this._queueToken || !this.isActive) return;
-
-    // 防禦 await 期間被使用者按下暫停：記下任務，而不是直接讓佇列永久卡死
-    if (this.isQueuePaused) {
-      this._resumeAfterPause = () => this.speakCurrent(token);
-      return;
+    if ((base === 'zh' && target.includes('hk')) || target.includes('yue')) {
+      return this.voices.filter(x => /yue|cantonese|hong kong|粵語|廣東話|香港/.test(((x.name || '') + ' ' + (x.lang || '')).toLowerCase()));
     }
-
-    this.speakCurrent(token);
-  }
-
-  speakCurrent(token) {
-    if (token !== this._queueToken || !this.isActive || this.isQueuePaused) return;
-
-    const text = this.queue[this.idx];
-    if (!text) {
-      this.isActive = false;
-      this.callbacks.onComplete?.();
-      return;
-    }
-
-    if (this.repeat === 0) {
-      this.callbacks.onStepChange?.({
-        index: this.idx,
-        total: this.queue.length,
-        text,
-        totalRepeats: this.config.repeats
+    
+    // [新增] 嚴格篩選普通話，排除粵語干擾
+    if (base === 'zh' && (target.includes('cn') || target.includes('tw') || target.includes('cmn') || target.includes('mandarin'))) {
+      return this.voices.filter(x => {
+        const s = ((x.name || '') + ' ' + (x.lang || '')).toLowerCase();
+        if (/yue|cantonese|hong kong|粵語|廣東話|香港/.test(s)) return false;
+        return /zh-cn|zh-tw|cmn|mandarin|普通話|国语|國語|chinese/.test(s);
       });
     }
 
-    this.engine.play(text, this.config, {
-      onEnd: () => {
-        if (token !== this._queueToken || !this.isActive) return;
-        this.repeat++;
-        if (this.repeat < this.config.repeats) {
-          this.callbacks.onRepeat?.(this.repeat + 1, this.config.repeats);
-          this.schedule(() => this.speakCurrent(token), 2000);
-        } else {
-          this.callbacks.onWritingPause?.(this.config.pauseSec);
-          this.schedule(() => {
-            this.repeat = 0;
-            this.idx++;
-            this.speakCurrent(token);
-          }, this.config.pauseSec * 1000);
-        }
-      },
-      onError: (msg) => {
-        if (!this._abortQueue(token)) return;
-        this.callbacks.onError?.(msg);
-      },
-      onInterrupted: () => {
-        if (!this._abortQueue(token)) return;
-        // 傳遞 Error 物件，保留 code 供外層判斷
-        this.callbacks.onError?.(Object.assign(new Error('語音被系統中斷'), { code: 'SYS_INTERRUPTED' }));
+    if (base === 'en') {
+      return this.voices.filter(x => norm(x).startsWith('en-'));
+    }
+    return this.voices.filter(x => norm(x) === target);
+  }
+
+  getVoiceForLang(langCode) {
+    const target = langCode.toLowerCase();
+    const norm = v => (v.lang || '').toLowerCase().replace('_', '-');
+    let v = this.voices.find(x => norm(x) === target);
+    if (v) return v;
+
+    const base = target.split('-')[0];
+    if ((base === 'zh' && target.includes('hk')) || target.includes('yue')) {
+      return this.voices.find(x => /yue|cantonese|hong kong|粵語|廣東話|香港/.test(((x.name || '') + ' ' + (x.lang || '')).toLowerCase())) || null;
+    }
+
+    // [新增] 同步普通話的預設語音抓取邏輯
+    if (base === 'zh' && (target.includes('cn') || target.includes('tw') || target.includes('cmn') || target.includes('mandarin'))) {
+      return this.voices.find(x => {
+        const s = ((x.name || '') + ' ' + (x.lang || '')).toLowerCase();
+        if (/yue|cantonese|hong kong|粵語|廣東話|香港/.test(s)) return false;
+        return /zh-cn|zh-tw|cmn|mandarin|普通話|国语|國語|chinese/.test(s);
+      }) || null;
+    }
+
+    if (base === 'en') {
+      return this.voices.find(x => norm(x).startsWith('en-')) || null;
+    }
+    return null;
+  }
+
+  async play(text, config, callbacks) {
+    if (!this.isSupported || this._destroyed) { 
+      callbacks.onError?.('此瀏覽器不支援語音合成，或引擎已卸載'); 
+      return; 
+    }
+
+    this.stop(); 
+    const currentToken = this._token;
+
+    if (!this.isVoicesReady) {
+      await this.initVoices();
+      if (currentToken !== this._token) { callbacks.onInterrupted?.(); return; }
+    }
+
+    if (!this.isVoicesReady || this.voices.length === 0) {
+      callbacks.onError?.('此裝置沒有任何語音包'); return;
+    }
+
+    let voice = null;
+    if (config.voiceName) {
+      const validVoices = this.getVoiceListForLang(config.lang);
+      voice = validVoices.find(v => v.name === config.voiceName);
+    }
+    if (!voice) {
+      voice = this.getVoiceForLang(config.lang);
+    }
+
+    if (!voice) { callbacks.onError?.(`找不到語言 ${config.lang} 的語音包`); return; }
+
+    const utterance = new this.Utterance(text);
+    this.currentUtterance = utterance;
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+    utterance.rate = config.rate || 0.85;
+
+    this._pauseRequested = false;
+    this.startHeartbeat();
+
+    const cleanup = () => {
+      this.currentUtterance = null;
+      this._pauseRequested = false;
+      this.stopHeartbeat();
+      clearTimeout(this.watchdog);
+    };
+
+    utterance.onend = () => { if (this.currentUtterance === utterance) { cleanup(); callbacks.onEnd?.(); } };
+    utterance.onerror = (e) => {
+      if (this.currentUtterance !== utterance) return;
+      cleanup();
+      if (e.error === 'interrupted' || e.error === 'canceled') { callbacks.onInterrupted?.(); return; }
+      callbacks.onError?.(`語音發生錯誤: ${e.error}`);
+    };
+
+    const timeoutMs = Math.max(15000, (text.length * 500) / utterance.rate);
+    this.watchdog = setTimeout(() => {
+      if (this.currentUtterance === utterance && !this.synth.speaking && !this.synth.paused && !this.synth.pending) {
+        cleanup();
+        this.synth.cancel();
+        callbacks.onError?.('語音引擎超時無回應');
       }
-    });
+    }, timeoutMs);
+
+    setTimeout(() => {
+      if (currentToken !== this._token) return;
+      this.synth.speak(utterance);
+      if (this._pauseRequested) {
+        this.synth.pause();
+        this._pauseRequested = false;
+        this.stopHeartbeat();
+      }
+    }, 100);
   }
 
   stop() {
-    this._queueToken++;
-    this.isActive = false;
-    this.isQueuePaused = false;
-    this.clearQueueTimers();
-    this.queue = [];
-    this.engine.stop();
-  }
-
-  replayCurrent() {
-    if (!this.isActive) return;
-    const newToken = ++this._queueToken;
-    this._prepareForNavigation();
-    this.speakCurrent(newToken);
-  }
-
-  skipCurrent() {
-    if (!this.isActive) return;
-    const newToken = ++this._queueToken;
-    this._prepareForNavigation();
-    this.idx++;
-    this.speakCurrent(newToken);
-  }
-
-  prevCurrent() {
-    if (!this.isActive || this.idx === 0) return;
-    const newToken = ++this._queueToken;
-    this._prepareForNavigation();
-    this.idx--;
-    this.speakCurrent(newToken);
+    this._token++; 
+    this._pauseRequested = false;
+    if (this.currentUtterance) {
+      this.currentUtterance = null;
+      this.synth.cancel();
+    }
+    this.stopHeartbeat();
+    clearTimeout(this.watchdog);
   }
 
   pause() {
-    if (!this.isActive || this.isQueuePaused) return false;
-    this.isQueuePaused = true;
-
-    if (this._pausedTask) {
-      clearTimeout(this._pausedTask.timerId);
-      this.timers.delete(this._pausedTask.timerId);
-      const elapsed = performance.now() - this._pausedTask.start;
-
-      // Math.max(500, ...) 是刻意的防抖設計。
-      // 避免剩餘時間極短 (如 5ms) 時按下暫停，恢復後瞬間觸發，讓使用者反應不及。
-      // 代價是快速反覆暫停/恢復時，剩餘時間會逐漸減少並停留在 500ms 下限。
-      this._pausedTask.remaining = Math.max(500, this._pausedTask.remaining - elapsed);
-      // 注意：這裡不更新 _pausedTask.start，因為 resume 時 schedule() 會創建新物件並刷新 start。
+    if (!this.currentUtterance) return false;
+    if (!this.synth.speaking) {
+      this._pauseRequested = true;
+      this.stopHeartbeat();
+      return true;
     }
-
-    // 引擎可能已經在播放中暫停，或者根本沒在播（計時器狀態），這不影響佇列的暫停
-    // [P3-3 優化] 註明返回值語義：僅代表佇列成功進入暫停狀態，不保證底層引擎的狀態改變
-    this.engine.pause?.();
+    this.synth.pause();
+    this.stopHeartbeat();
     return true;
   }
 
   resume() {
-    if (!this.isActive || !this.isQueuePaused) return false;
-    this.isQueuePaused = false;
-
-    if (this._pausedTask) {
-      // 邏輯上 _pausedTask 與 _resumeAfterPause 互斥（前者來自 schedule，
-      // 後者來自 startQueue await 窗口），但顯式清理以防未來改動引入共存。
-      this._resumeAfterPause = null;
-      const { fn, remaining } = this._pausedTask;
-      this.schedule(fn, remaining);
-    } else if (this._resumeAfterPause) {
-      // 如果是在 await initVoices 期間被暫停，恢復時執行之前掛起的任務
-      const fn = this._resumeAfterPause;
-      this._resumeAfterPause = null;
-      fn();
-    } else {
-      // 計時器狀態下恢復：引擎本來就沒在播，resume 回傳 false 是正常的
-      this.engine.resume?.();
-    }
-    return true; // 佇列成功恢復
+    if (!this.currentUtterance) return false;
+    if (!this.synth.speaking && !this._pauseRequested) return false; 
+    
+    this.synth.resume();
+    this._pauseRequested = false;
+    this.startHeartbeat();
+    return true;
   }
 
   isPaused() {
-    return this.isQueuePaused;
+    return this._pauseRequested === true || (this.synth?.paused === true && this.synth?.speaking === true);
+  }
+
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.currentUtterance && this.synth.paused) this.synth.resume();
+    }, 10000);
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+  }
+
+  destroy() {
+    this._destroyed = true;
+    this.stop();
+    if (this._lateListener) {
+      this.synth.removeEventListener('voiceschanged', this._lateListener);
+      this._lateListener = null;
+    }
+    this._voicesPromise = null;
+    this.voices = [];
+    this.onVoicesReady = null;
   }
 }
