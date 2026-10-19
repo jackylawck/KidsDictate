@@ -225,7 +225,6 @@ export class AppController {
 
     this.el.maskToggle?.addEventListener('change', () => this.renderWordDisplay());
 
-    // 綁定複製 AI 提示詞按鈕
     const copyPromptBtn = document.getElementById('copyPromptBtn');
     if (copyPromptBtn) {
       copyPromptBtn.addEventListener('click', async (e) => {
@@ -292,7 +291,6 @@ export class AppController {
       const rate = parseFloat(this.el.rateRange.value);
       const voiceName = this.el.voiceSelect.value; 
       
-      // 動態根據語系設定測試文字，包含普通話
       let text = '測試語音發音，一二三四';
       if (lang.startsWith('en')) text = 'Testing voice setup.';
       if (lang === 'zh-CN') text = '测试语音发音，一二三四';
@@ -300,7 +298,6 @@ export class AppController {
       this.el.testVoiceBtn.disabled = true;
       const unlockBtn = () => { if (this.el.testVoiceBtn) this.el.testVoiceBtn.disabled = false; };
       
-      // [核心防禦] iOS Safari 語音解鎖機制：在 click 事件中同步觸發一次極短無聲音訊
       if (window.speechSynthesis) {
         const unlockMsg = new SpeechSynthesisUtterance('一');
         unlockMsg.volume = 0.01; 
@@ -478,4 +475,3 @@ export class AppController {
     this.testEngine.destroy?.();
   }
 }
-```[The file '' could not be opened]
