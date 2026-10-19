@@ -1,0 +1,24 @@
+{
+  "name": "童心默書 KidsDictate",
+  "short_name": "童心默書",
+  "description": "本機離線運算 · 零資料上傳 · 家長安心的默書小助手",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "KidsDictate192icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "KidsDictate512icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
