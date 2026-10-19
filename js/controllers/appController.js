@@ -225,7 +225,7 @@ export class AppController {
 
     this.el.maskToggle?.addEventListener('change', () => this.renderWordDisplay());
 
-    // [新增] 綁定複製 AI 提示詞按鈕
+    // 綁定複製 AI 提示詞按鈕
     const copyPromptBtn = document.getElementById('copyPromptBtn');
     if (copyPromptBtn) {
       copyPromptBtn.addEventListener('click', async (e) => {
@@ -291,10 +291,24 @@ export class AppController {
       const lang = this.el.langSelect.value;
       const rate = parseFloat(this.el.rateRange.value);
       const voiceName = this.el.voiceSelect.value; 
-      const text = lang.startsWith('en') ? 'Testing voice setup.' : '測試語音發音，一二三四';
+      
+      // 動態根據語系設定測試文字，包含普通話
+      let text = '測試語音發音，一二三四';
+      if (lang.startsWith('en')) text = 'Testing voice setup.';
+      if (lang === 'zh-CN') text = '测试语音发音，一二三四';
       
       this.el.testVoiceBtn.disabled = true;
       const unlockBtn = () => { if (this.el.testVoiceBtn) this.el.testVoiceBtn.disabled = false; };
+      
+      // [核心防禦] iOS Safari 語音解鎖機制：在 click 事件中同步觸發一次極短無聲音訊
+      if (window.speechSynthesis) {
+        const unlockMsg = new SpeechSynthesisUtterance('一');
+        unlockMsg.volume = 0.01; 
+        unlockMsg.rate = 10;
+        unlockMsg.lang = lang;
+        window.speechSynthesis.speak(unlockMsg);
+      }
+
       try {
         await this.testEngine.play(text, { lang, rate, voiceName }, {
           onEnd: unlockBtn, onInterrupted: unlockBtn, onError: (err) => { this.showToast(err, 'error'); unlockBtn(); }
@@ -464,3 +478,4 @@ export class AppController {
     this.testEngine.destroy?.();
   }
 }
+```[The file '' could not be opened]
