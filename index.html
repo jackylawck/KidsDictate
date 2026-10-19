@@ -25,7 +25,7 @@
         <button id="langEnBtn" class="px-2 py-1 rounded hover:bg-slate-200 transition" aria-label="Switch to English">EN</button>
       </div>
       <h1 data-i18n="appTitle" class="text-2xl font-black text-indigo-600 tracking-tight">童心默書 KidsDictate</h1>
-      <p data-i18n="appSubtitle" class="text-xs text-slate-400 mt-1">本機離線運算 · 零資料上傳 · 家長安心</p>
+      <p data-i18n="appSubtitle" class="text-xs text-slate-400 mt-1">本機運算 · 零資料上傳 · 家長安心</p>
 
       <details class="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm cursor-pointer group text-left">
         <summary data-i18n="privacyTitle" class="font-bold text-slate-700 select-none focus-visible:outline-2 focus-visible:outline-indigo-500 focus-visible:outline-offset-2 rounded group-open:text-indigo-600">🔒 隱私與安全說明 (家長請看)</summary>
@@ -33,7 +33,7 @@
           <p data-i18n="privacyP1">✅ 零資料上傳：照片與詞表只在手機記憶體內處理，絕對不上傳伺服器。</p>
           <p data-i18n="privacyP2">✅ 本機運算：無追蹤碼、無廣告、不收集姓名或學校資料。</p>
           <p data-i18n="privacyP3">✅ 開源可查：原始碼完全公開透明，任何人皆可審計。</p>
-          <!-- [P3-1 優化] 隱式契約註釋：初始雙語 fallback 僅在 i18n 未初始化時有效；i18n 初始化後會被 textContent 覆蓋為當前語言（不含 <br>）。若在 i18n.ts 中加入 <br> 會被當作純文本裸露。 -->
+          <!-- 初始雙語 fallback 僅在 i18n 未初始化時有效；i18n 初始化後會被 textContent 覆蓋為當前語言（不含 <br>）。若在 i18n.ts 中加入 <br> 會被當作純文本裸露。 -->
           <p data-i18n="silentModeHint" class="text-indigo-600 font-bold mt-2">🔊 若聽不到聲音，請檢查 iPhone 側邊的靜音開關是否已關閉。<br>If you hear no sound, check the silent switch on your iPhone.</p>
         </div>
       </details>
@@ -78,8 +78,8 @@
         </select>
       </div>
       
-      <div class="col-span-2">
-        <!-- [P3-2 修復] 取消硬編碼，正式納入 i18n 體系 -->
+      <!-- [終極視覺優化] 加入 pt-2 讓 voiceSelect 與上方的 select 拉開呼吸空間 -->
+      <div class="col-span-2 pt-2">
         <label for="voiceSelect" data-i18n="voiceSelectLabel" class="block text-slate-600 font-medium mb-1 text-xs">聲音選擇</label>
         <select id="voiceSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <!-- 選項會由 AppController.populateVoices() 動態產生 -->
