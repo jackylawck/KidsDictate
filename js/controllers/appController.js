@@ -9,7 +9,6 @@ export class AppController {
       this.engine = new SpeechEngine();
       this.testEngine = new SpeechEngine();
     } catch {
-      // 保留未來 constructor 可能加入的驗證
       this.engine = { play: () => this.showToast('語音功能不可用', 'error'), stop: () => {}, initVoices: async () => {}, isSupported: false, isPaused: () => false };
       this.testEngine = this.engine;
     }
@@ -22,12 +21,11 @@ export class AppController {
     this.remainingSec = 0;
     this.totalPauseSec = 8;
     
-    // 狀態快取與並行鎖
     this._populatingVoices = null; 
     this._unsubI18n = null;        
-    this._lastRepeatStatus = '';   // 記錄朗讀進度，以便從暫停中恢復
-    this._ocrToken = 0;            // 防止連續上傳的進度與結果互相覆蓋
-    this._ocrHideTimer = null;     // 防止連續上傳時，舊 timer 提早關閉 UI
+    this._lastRepeatStatus = '';   
+    this._ocrToken = 0;            
+    this._ocrHideTimer = null;     
 
     this.initElements();
     this.bindEvents();
@@ -107,9 +105,7 @@ export class AppController {
     this.el.langZhBtn?.setAttribute('aria-pressed', String(locale === 'zh-HK'));
     this.el.langEnBtn?.setAttribute('aria-pressed', String(locale === 'en'));
 
-    // 同步更新語速 Range 的 aria-valuetext 與可見文字
     this._updateRateRangeAria();
-
     if (!this.speechService.isActive) this.populateVoices();
   }
 
@@ -202,7 +198,6 @@ export class AppController {
     return this._populatingVoices;
   }
 
-  // 輔助方法：確保 Range 可見文字與語音播報單位完美同步
   _updateRateRangeAria() {
     if (!this.el.rateRange) return;
     const val = this.el.rateRange.value;
@@ -222,15 +217,28 @@ export class AppController {
     this.el.langSelect.addEventListener('change', () => this.populateVoices());
     this.populateVoices();
 
-    // 初始化時先賦予一次 aria-valuetext 與可見文字
     this._updateRateRangeAria();
 
     this.el.rateRange.addEventListener('input', () => {
-      // 統一更新可見文字與 a11y 語意播報
       this._updateRateRangeAria();
     });
 
     this.el.maskToggle?.addEventListener('change', () => this.renderWordDisplay());
+
+    // [新增] 綁定複製 AI 提示詞按鈕
+    const copyPromptBtn = document.getElementById('copyPromptBtn');
+    if (copyPromptBtn) {
+      copyPromptBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const promptText = i18n.t('aiPromptText');
+        try {
+          await navigator.clipboard.writeText(promptText);
+          this.showToast(i18n.t('promptCopied'), 'success');
+        } catch (err) {
+          this.showToast(i18n.t('promptCopyFailed'), 'error');
+        }
+      });
+    }
 
     this.el.imageInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
@@ -375,7 +383,6 @@ export class AppController {
     
     this.setPlaybackUI(true);
 
-    // [iOS 語音修復] 同步發送極短無聲音訊，解鎖 Safari 權限
     if (window.speechSynthesis) {
       const unlockMsg = new SpeechSynthesisUtterance('一');
       unlockMsg.volume = 0.01; 
