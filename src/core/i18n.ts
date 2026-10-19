@@ -48,7 +48,14 @@ export const translations = {
     // [P1 修復] 補齊語系選單的翻譯 Key，解決 UI 上顯示 langZhHK 等原始 Key 名的問題
     langZhHK: '粵語 (廣東話)',
     langEnUS: 'English (US)',
-    langEnGB: 'English (UK)'
+    langEnGB: 'English (UK)',
+
+    // [終極 P2/P3 補齊] 靜音提示與完整的 OCR 邊緣錯誤映射
+    silentModeHint: '🔊 若聽不到聲音，請檢查 iPhone 側邊的靜音開關是否已關閉。',
+    ocrErrEngineInit: '辨識引擎初始化失敗，請檢查網絡或重試',
+    ocrErrEngineNotLoaded: 'OCR 引擎未載入',
+    ocrErrTimeout: '圖片處理超時，請重試',
+    ocrErrWorkerCrash: '圖片處理失敗，請重試'
   },
   'en': {
     appTitle: 'KidsDictate',
@@ -95,7 +102,14 @@ export const translations = {
     // [P1 修復] 補齊語系選單的翻譯 Key，與 zh-HK 對稱以通過型別檢查
     langZhHK: 'Cantonese',
     langEnUS: 'English (US)',
-    langEnGB: 'English (UK)'
+    langEnGB: 'English (UK)',
+
+    // [終極 P2/P3 補齊] 靜音提示與完整的 OCR 邊緣錯誤映射，完美對稱
+    silentModeHint: '🔊 If you hear no sound, check the silent switch on the side of your iPhone.',
+    ocrErrEngineInit: 'OCR engine init failed. Please check network and retry.',
+    ocrErrEngineNotLoaded: 'OCR engine not loaded',
+    ocrErrTimeout: 'Image processing timeout. Please retry.',
+    ocrErrWorkerCrash: 'Image processing failed. Please retry.'
   }
 } as const;
 
