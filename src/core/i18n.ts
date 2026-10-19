@@ -46,6 +46,7 @@ export const translations = {
     noVoiceAvailable: '⚠️ 此裝置無該語言的語音包',
     
     langZhHK: '粵語 (廣東話)',
+    langZhCN: '普通話 (Mandarin)',
     langEnUS: 'English (US)',
     langEnGB: 'English (UK)',
 
@@ -54,11 +55,17 @@ export const translations = {
     ocrErrEngineNotLoaded: 'OCR 引擎未載入',
     ocrErrTimeout: '圖片處理超時，請重試',
     ocrErrWorkerCrash: '圖片處理失敗，請重試',
-    voiceSelectLabel: '聲音選擇'
+    voiceSelectLabel: '聲音選擇',
+
+    aiTipTitle: '💡 圖片排版太複雜，辨識亂碼？',
+    aiTipDesc: '如果課本有拼音、手寫筆記或複雜背景，本機辨識可能會失敗。為了保護隱私，我們不上傳您的照片。建議您使用自己的 AI 工具 (如 ChatGPT, Claude)，一鍵複製下方提示詞並附上照片，即可獲得精準的默書文字！',
+    aiPromptText: '你是一位小學默書助手。請辨識我上傳圖片中的默書詞語或句子。過濾掉姓名、日期、注音拼音與無關指示。修正明顯的錯別字。輸出格式必須為純文字，每個詞語或句子獨立成一行。不要包含任何開頭問候或編號。',
+    copyPromptBtn: '📋 一鍵複製提示詞 (Copy Prompt)',
+    promptCopied: '已複製提示詞！請前往您的 AI 工具貼上',
+    promptCopyFailed: '複製失敗，請手動選取複製'
   },
   'en': {
     appTitle: 'KidsDictate',
-    // [P3 修復] 將 Offline 改為 Local，與中文本機運算及 privacyP2 完美對齊語意
     appSubtitle: 'Local Processing · Zero Data Upload · 100% Private',
     privacyTitle: '🔒 Privacy & Security Guarantee',
     privacyP1: '✅ Zero Data Upload: Photos & words are processed entirely in device memory.',
@@ -100,6 +107,7 @@ export const translations = {
     noVoiceAvailable: '⚠️ No voice available for this language',
 
     langZhHK: 'Cantonese',
+    langZhCN: 'Mandarin (Putonghua)',
     langEnUS: 'English (US)',
     langEnGB: 'English (UK)',
 
@@ -108,7 +116,14 @@ export const translations = {
     ocrErrEngineNotLoaded: 'OCR engine not loaded',
     ocrErrTimeout: 'Image processing timeout. Please retry.',
     ocrErrWorkerCrash: 'Image processing failed. Please retry.',
-    voiceSelectLabel: 'Voice'
+    voiceSelectLabel: 'Voice',
+
+    aiTipTitle: '💡 Complex Layout? OCR Failed?',
+    aiTipDesc: 'If the textbook has pinyin, handwriting, or a complex background, local OCR might fail. To protect your privacy, we do not upload your photos. We recommend using your own AI tool (e.g., ChatGPT, Claude). Copy the prompt below and attach the photo to get accurate dictation text!',
+    aiPromptText: 'You are a primary school dictation assistant. Please extract the dictation vocabulary or sentences from the uploaded image. Ignore names, dates, pinyin, and unrelated instructions. Fix obvious typos. Output strictly as plain text, with each word or sentence on a new line. Do not include greetings or numbering.',
+    copyPromptBtn: '📋 Copy Prompt',
+    promptCopied: 'Prompt copied! Please paste it into your AI tool.',
+    promptCopyFailed: 'Copy failed. Please select and copy manually.'
   }
 } as const;
 
@@ -166,8 +181,6 @@ export class I18nService {
 
   public t(key: TranslationKey, params?: Record<string, string | number>): string {
     const dict = translations[this.currentLocale] as Record<TranslationKey, string>;
-    
-    // fallback 固定 zh-HK：香港默書工具，繁體中文是基準語言
     const fallbackDict = translations['zh-HK'] as Record<TranslationKey, string>;
     
     let str: string = dict[key] ?? fallbackDict[key] ?? key;
