@@ -1,13 +1,63 @@
-<!DOCTYPE html>
-<html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
+  
+  <!-- 🔍 基礎 SEO 核心標籤 -->
+  <title data-i18n="appTitle">童心默書 KidsDictate | 本機離線運算 · 零資料上傳</title>
+  <meta name="description" content="專為香港學童設計的本機離線默書小助手。運用 Edge OCR 與 Web Speech 技術，照片與詞表零資料上傳，徹底保護學童隱私。支援繁體中文、普通話與英文發音。">
+  <meta name="keywords" content="默書, 童心默書, KidsDictate, 香港小學, 離線默書, 隱私保護, OCR, 默書APP, 語音默書, 普教中">
+  <meta name="author" content="Jacky Law">
+  <meta name="robots" content="index, follow">
+
+  <!-- ✅ Google 網站管理員驗證 -->
+  <meta name="google-site-verification" content="JZ5UohX-CcP_fQV0_DI9VadkKY4ZoTTkUifL88-fIcY" />
+
+  <!-- 🌐 Open Graph / Facebook / WhatsApp 社交卡片 -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="童心默書 KidsDictate | 守護隱私的默書神器">
+  <meta property="og:description" content="100% 本機離線運算，照片絕不上傳伺服器。支援中英普語音，讓孩子安心練習默書！">
+  <meta property="og:image" content="KidsDictate512icon.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:alt" content="童心默書 KidsDictate 標誌">
+  <meta property="og:locale" content="zh_HK">
+  <meta property="og:site_name" content="童心默書 KidsDictate">
+
+  <!-- 🐦 Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="童心默書 KidsDictate | 守護隱私的默書神器">
+  <meta name="twitter:description" content="100% 本機離線運算，零資料上傳。支援中英普三語，家長安心的默書小助手。">
+  <meta name="twitter:image" content="KidsDictate512icon.png">
+
+  <!-- 📱 PWA 與加入手機畫面設定 (Add to Home Screen) -->
+  <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="童心默書">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#f8fafc">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; img-src 'self' blob: data:; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';">
-  <title data-i18n="appTitle">童心默書 KidsDictate</title>
+  <meta name="application-name" content="童心默書">
+  <link rel="apple-touch-icon" sizes="192x192" href="KidsDictate192icon.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="KidsDictate512icon.png">
+
+  <!-- 🛡️ 企業級安全策略：CSP 與權限隔離 (專為 OCR 與 Web Worker 調整) -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob:;
+    font-src 'self' data:;
+    connect-src 'self';
+    worker-src 'self' blob:;
+    media-src 'self' data:;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'none';
+  ">
+  <meta http-equiv="Permissions-Policy" content="camera=*, microphone=(), geolocation=(), payment=(), usb=()">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+
+  <!-- 載入資源 -->
   <link rel="stylesheet" href="css/app.css">
   <script src="vendor/tesseract.min.js" defer></script>
 </head>
