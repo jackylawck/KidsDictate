@@ -11,17 +11,18 @@ export class SpeechEngine {
     this._voicesPromise = null;
     this._token = 0; 
     this._pauseRequested = false;
-    this._lateListener = null; // [新增] 保存 late listener 參照防洩漏
-    this._destroyed = false;   // [新增] 生命週期終止標誌，阻斷幽靈回調
+    this._lateListener = null; // 保存 late listener 參照防洩漏
+    this._destroyed = false;   // 生命週期終止標誌，阻斷幽靈回調
   }
 
   initVoices() {
-    if (!this.isSupported) return Promise.resolve([]);
+    // [P3-1 修復] 加入 _destroyed 守衛，確保銷毀後的呼叫會立即回傳（拒絕），而非陷入永久 Pending
+    if (!this.isSupported || this._destroyed) return Promise.resolve([]);
     if (this._voicesPromise) return this._voicesPromise;
 
     this._voicesPromise = new Promise((resolve) => {
       const tryResolve = () => {
-        if (this._destroyed) return false; // [防禦] 若已卸載則直接捨棄
+        if (this._destroyed) return false; // 若已卸載則直接捨棄
         
         const list = this.synth.getVoices();
         if (list.length === 0) return false; 
@@ -31,7 +32,7 @@ export class SpeechEngine {
         this.synth.removeEventListener('voiceschanged', tryResolve);
         resolve(this.voices);
         
-        // [對稱性修復] 正常路徑也統一觸發就緒回調，通知 UI 更新
+        // 正常路徑也統一觸發就緒回調，通知 UI 更新
         if (typeof this.onVoicesReady === 'function') {
           this.onVoicesReady();
         }
@@ -42,7 +43,7 @@ export class SpeechEngine {
       this.synth.addEventListener('voiceschanged', tryResolve);
 
       setTimeout(() => {
-        if (this._destroyed) return; // [防禦] 阻斷 3 秒後才甦醒的未爆彈
+        if (this._destroyed) return; // 阻斷 3 秒後才甦醒的未爆彈
         if (this.isVoicesReady) return;
         
         this.synth.removeEventListener('voiceschanged', tryResolve);
@@ -51,7 +52,7 @@ export class SpeechEngine {
         resolve([]);
 
         const late = () => {
-          if (this._destroyed) return; // [防禦] 雙重保險
+          if (this._destroyed) return; // 雙重保險
           const list = this.synth.getVoices();
           if (list.length === 0) return;
           
@@ -73,13 +74,13 @@ export class SpeechEngine {
     return this._voicesPromise;
   }
 
-  // [新增] 獲取指定語言的所有可用聲音清單 (產生男/女聲發音人選單)
+  // 獲取指定語言的所有可用聲音清單 (產生男/女聲發音人選單)
   getVoiceListForLang(langCode) {
     const target = langCode.toLowerCase();
     const norm = v => (v.lang || '').toLowerCase().replace('_', '-');
     const base = target.split('-')[0];
 
-    if (base === 'zh' && target.includes('hk')) {
+    if ((base === 'zh' && target.includes('hk')) || target.includes('yue')) {
       return this.voices.filter(x => /yue|cantonese|hong kong|粵語|廣東話|香港/.test(((x.name || '') + ' ' + (x.lang || '')).toLowerCase()));
     }
     if (base === 'en') {
@@ -95,7 +96,7 @@ export class SpeechEngine {
     if (v) return v;
 
     const base = target.split('-')[0];
-    if (base === 'zh' && target.includes('hk')) {
+    if ((base === 'zh' && target.includes('hk')) || target.includes('yue')) {
       return this.voices.find(x => /yue|cantonese|hong kong|粵語|廣東話|香港/.test(((x.name || '') + ' ' + (x.lang || '')).toLowerCase())) || null;
     }
     if (base === 'en') {
@@ -105,7 +106,11 @@ export class SpeechEngine {
   }
 
   async play(text, config, callbacks) {
-    if (!this.isSupported) { callbacks.onError?.('此瀏覽器不支援語音合成'); return; }
+    // [P3-1 修復] 阻斷已銷毀引擎的掛起調用
+    if (!this.isSupported || this._destroyed) { 
+      callbacks.onError?.('此瀏覽器不支援語音合成，或引擎已卸載'); 
+      return; 
+    }
 
     this.stop(); 
     const currentToken = this._token;
@@ -119,7 +124,7 @@ export class SpeechEngine {
       callbacks.onError?.('此裝置沒有任何語音包'); return;
     }
 
-    // [增強] 優先使用指定的發音人，並加入語言一致性校驗
+    // 優先使用指定的發音人，並加入語言一致性校驗
     let voice = null;
     if (config.voiceName) {
       const validVoices = this.getVoiceListForLang(config.lang);
@@ -157,7 +162,7 @@ export class SpeechEngine {
 
     const timeoutMs = Math.max(15000, (text.length * 500) / utterance.rate);
     this.watchdog = setTimeout(() => {
-      if (this.currentUtterance === utterance && !this.synth.speaking && !this.synth.paused) {
+      if (this.currentUtterance === utterance && !this.synth.speaking && !this.synth.paused && !this.synth.pending) {
         cleanup();
         this.synth.cancel();
         callbacks.onError?.('語音引擎超時無回應');
@@ -200,7 +205,6 @@ export class SpeechEngine {
 
   resume() {
     if (!this.currentUtterance) return false;
-    // [防禦] 若語音已結束且也沒被預約暫停，則無事可做
     if (!this.synth.speaking && !this._pauseRequested) return false; 
     
     this.synth.resume();
@@ -225,7 +229,7 @@ export class SpeechEngine {
     this.heartbeatTimer = null;
   }
 
-  // [新增] 真正的實例卸載方法，徹底清掃記憶體與事件
+  // 真正的實例卸載方法，徹底清掃記憶體與事件
   destroy() {
     this._destroyed = true;
     this.stop();
@@ -234,5 +238,12 @@ export class SpeechEngine {
       this._lateListener = null;
     }
     this._voicesPromise = null;
+    this.voices = [];
+    this.onVoicesReady = null;
+    
+    // [P3-2 優化] 標記不清除 synth 與 Utterance 的意圖
+    // 注意：this.synth (window.speechSynthesis) 是系統層級的單例 (Singleton)，
+    // this.Utterance 則是全域建構函數。
+    // 在此刻意保留參照，不將其設為 null，以防止破壞同時間存活的其他 SpeechEngine 實體（如 testEngine）。
   }
 }
