@@ -6,6 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#f8fafc">
+  <!-- 嚴格的 CSP 策略，堅守零外部連線原則 -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; img-src 'self' blob: data:; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';">
   <title data-i18n="appTitle">童心默書 KidsDictate</title>
   <link rel="stylesheet" href="css/app.css">
@@ -19,9 +20,9 @@
     
     <header class="text-center print:hidden">
       <div class="flex justify-end gap-2 text-xs font-bold text-slate-500 mb-2">
-        <button id="langZhBtn" class="px-2 py-1 rounded hover:bg-slate-200 transition">繁中</button>
+        <button id="langZhBtn" class="px-2 py-1 rounded hover:bg-slate-200 transition" aria-label="切換至繁體中文">繁中</button>
         <span class="text-slate-300">|</span>
-        <button id="langEnBtn" class="px-2 py-1 rounded hover:bg-slate-200 transition">EN</button>
+        <button id="langEnBtn" class="px-2 py-1 rounded hover:bg-slate-200 transition" aria-label="Switch to English">EN</button>
       </div>
       <h1 data-i18n="appTitle" class="text-2xl font-black text-indigo-600 tracking-tight">童心默書 KidsDictate</h1>
       <p data-i18n="appSubtitle" class="text-xs text-slate-400 mt-1">本機離線運算 · 零資料上傳 · 家長安心</p>
@@ -32,6 +33,8 @@
           <p data-i18n="privacyP1">✅ 零資料上傳：照片與詞表只在手機記憶體內處理，絕對不上傳伺服器。</p>
           <p data-i18n="privacyP2">✅ 本機運算：無追蹤碼、無廣告、不收集姓名或學校資料。</p>
           <p data-i18n="privacyP3">✅ 開源可查：原始碼完全公開透明，任何人皆可審計。</p>
+          <!-- [P3-1 優化] 隱式契約註釋：初始雙語 fallback 僅在 i18n 未初始化時有效；i18n 初始化後會被 textContent 覆蓋為當前語言（不含 <br>）。若在 i18n.ts 中加入 <br> 會被當作純文本裸露。 -->
+          <p data-i18n="silentModeHint" class="text-indigo-600 font-bold mt-2">🔊 若聽不到聲音，請檢查 iPhone 側邊的靜音開關是否已關閉。<br>If you hear no sound, check the silent switch on your iPhone.</p>
         </div>
       </details>
     </header>
@@ -43,7 +46,7 @@
         <span data-i18n="photoBtn" class="text-indigo-700 font-bold block text-sm">影相或選取默書範圍</span>
       </label>
       <div id="ocrProgressBox" class="mt-4 hidden space-y-2">
-        <div class="text-xs font-semibold text-indigo-600" id="ocrStatusText">...</div>
+        <div class="text-xs font-semibold text-indigo-600" id="ocrStatusText" aria-live="polite">...</div>
         <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
           <div id="ocrProgressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-200 w-0"></div>
         </div>
@@ -51,13 +54,13 @@
     </section>
 
     <section class="print:hidden">
-      <textarea id="dictationText" data-i18n="dictationPlaceholder" rows="6" class="w-full border border-slate-300 rounded-xl p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+      <textarea id="dictationText" data-i18n="dictationPlaceholder" rows="6" class="w-full border border-slate-300 rounded-xl p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none" aria-label="默書內容輸入區"></textarea>
     </section>
 
     <section class="grid grid-cols-2 gap-3 bg-slate-100/80 p-4 rounded-xl text-sm print:hidden">
       <div>
         <div class="flex justify-between items-end mb-1">
-          <label data-i18n="langLabel" class="block text-slate-600 font-medium text-xs">語言發音</label>
+          <label for="langSelect" data-i18n="langLabel" class="block text-slate-600 font-medium text-xs">語言發音</label>
           <button id="testVoiceBtn" data-i18n="testVoiceBtn" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded hover:bg-indigo-100 transition active:scale-95">🔊 測試發音</button>
         </div>
         <select id="langSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -67,7 +70,7 @@
         </select>
       </div>
       <div>
-        <label data-i18n="repeatLabel" class="block text-slate-600 font-medium mb-1 text-xs">重複次數</label>
+        <label for="repeatSelect" data-i18n="repeatLabel" class="block text-slate-600 font-medium mb-1 text-xs">重複次數</label>
         <select id="repeatSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <option value="1">1</option>
           <option value="2">2</option>
@@ -75,9 +78,9 @@
         </select>
       </div>
       
-      <!-- [修復] 補回遺失的 voiceSelect 下拉選單，解決紅色警告 -->
       <div class="col-span-2">
-        <label class="block text-slate-600 font-medium mb-1 text-xs">聲音選擇</label>
+        <!-- [P3-2 修復] 取消硬編碼，正式納入 i18n 體系 -->
+        <label for="voiceSelect" data-i18n="voiceSelectLabel" class="block text-slate-600 font-medium mb-1 text-xs">聲音選擇</label>
         <select id="voiceSelect" class="w-full p-2.5 border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <!-- 選項會由 AppController.populateVoices() 動態產生 -->
         </select>
@@ -85,13 +88,13 @@
 
       <div class="col-span-2 sm:col-span-1 pt-1">
         <div class="flex justify-between text-xs text-slate-600 font-medium mb-2">
-          <span data-i18n="speedLabel">語速調整</span>
-          <span id="rateLabel" class="text-indigo-600 font-bold">0.8x</span>
+          <label for="rateRange" data-i18n="speedLabel">語速調整</label>
+          <span id="rateLabel" class="text-indigo-600 font-bold" aria-hidden="true">0.8x</span>
         </div>
         <input type="range" id="rateRange" min="0.5" max="1.1" step="0.05" value="0.8" class="w-full accent-indigo-600 py-2 cursor-pointer">
       </div>
       <div class="col-span-2 sm:col-span-1">
-        <label data-i18n="pauseTimeLabel" class="block text-slate-600 font-medium mb-1 text-xs">書寫停頓 (秒)</label>
+        <label for="pauseInput" data-i18n="pauseTimeLabel" class="block text-slate-600 font-medium mb-1 text-xs">書寫停頓 (秒)</label>
         <input type="number" id="pauseInput" value="8" min="3" max="30" inputmode="numeric" class="w-full p-2 border rounded-lg bg-white text-base text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
       </div>
     </section>
@@ -100,10 +103,10 @@
       <div id="playingCard" class="hidden p-5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-center space-y-3">
         <div class="flex justify-between items-center text-xs font-bold text-indigo-500 uppercase">
           <span id="progressIndex">--</span>
-          <span id="repeatStatus" class="bg-indigo-100 px-2 py-0.5 rounded text-indigo-700">--</span>
+          <span id="repeatStatus" class="bg-indigo-100 px-2 py-0.5 rounded text-indigo-700" aria-live="polite">--</span>
         </div>
         
-        <div id="wordDisplay" class="text-3xl font-black text-slate-800 tracking-wide py-4 min-h-[64px] flex items-center justify-center"></div>
+        <div id="wordDisplay" class="text-3xl font-black text-slate-800 tracking-wide py-4 min-h-[64px] flex items-center justify-center" aria-live="polite"></div>
         
         <div class="flex justify-center items-center gap-2 pt-1">
           <input type="checkbox" id="maskToggle" checked class="accent-indigo-600 w-5 h-5 rounded cursor-pointer">
@@ -111,7 +114,7 @@
         </div>
 
         <div id="countdownVisual" class="hidden flex-col items-center gap-1">
-          <div id="countdownText" class="text-sm font-bold text-indigo-600"></div>
+          <div id="countdownText" class="text-sm font-bold text-indigo-600" aria-live="polite"></div>
           <div class="w-full h-2 bg-indigo-200 rounded-full overflow-hidden">
             <div id="countdownBar" class="h-full bg-indigo-500 transition-all duration-1000 ease-linear w-full"></div>
           </div>
