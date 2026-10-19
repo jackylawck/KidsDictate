@@ -10,6 +10,16 @@ export const translations = {
     privacyP1: '✅ 零資料上傳：照片與詞表只在手機記憶體內處理，絕對不上傳伺服器。',
     privacyP2: '✅ 本機運算：無追蹤碼、無廣告、不收集姓名或學校資料。',
     privacyP3: '✅ 開源可查：原始碼完全公開透明，任何人皆可審計。',
+    
+    // [新增] 誠實聲明與新排版的翻譯
+    inputLabel: '📝 輸入默書內容',
+    ocrToggle: '📸 圖片掃描 (Beta) 與 💡 AI 輔助',
+    ocrDisclaimerTitle: '⚠️ 系統限制誠實聲明：',
+    ocrDisclaimerP1: '為堅守「100% 離線運算、零資料上傳」的隱私承諾，本機掃描引擎能力有限。',
+    ocrDisclaimerP2: '❌ 無法處理：中英拼音夾雜、手寫筆記塗鴉、複雜插圖背景。',
+    ocrDisclaimerP3: '如果課本排版較複雜，請直接使用下方的「AI 輔助」功能。',
+    photoBtnSimple: '嘗試掃描簡單純文字版面',
+
     photoBtn: '📸 影相或選取默書範圍',
     testVoiceBtn: '🔊 測試發音',
     startBtn: '▶ 開始默書',
@@ -58,7 +68,7 @@ export const translations = {
     voiceSelectLabel: '聲音選擇',
 
     aiTipTitle: '💡 圖片排版太複雜，辨識亂碼？',
-    aiTipDesc: '如果課本有拼音、手寫筆記或複雜背景，本機辨識可能會失敗。為了保護隱私，我們不上傳您的照片。建議您使用自己的 AI 工具 (如 ChatGPT, Claude)，一鍵複製下方提示詞並附上照片，即可獲得精準的默書文字！',
+    aiTipDesc: '建議您使用自己的 AI 工具 (如 ChatGPT, Claude)，一鍵複製下方提示詞並附上照片，即可獲得精準的默書文字！',
     aiPromptText: '你是一位小學默書助手。請辨識我上傳圖片中的默書詞語或句子。過濾掉姓名、日期、注音拼音與無關指示。修正明顯的錯別字。輸出格式必須為純文字，每個詞語或句子獨立成一行。不要包含任何開頭問候或編號。',
     copyPromptBtn: '📋 一鍵複製提示詞 (Copy Prompt)',
     promptCopied: '已複製提示詞！請前往您的 AI 工具貼上',
@@ -71,6 +81,16 @@ export const translations = {
     privacyP1: '✅ Zero Data Upload: Photos & words are processed entirely in device memory.',
     privacyP2: '✅ Local Processing: Zero network trackers, zero ads, no telemetry.',
     privacyP3: '✅ Open Source: 100% open-source and auditable code.',
+    
+    // [新增] 誠實聲明與新排版的翻譯 (英文版)
+    inputLabel: '📝 Enter Dictation Text',
+    ocrToggle: '📸 Image Scan (Beta) & 💡 AI Assistant',
+    ocrDisclaimerTitle: '⚠️ Honest System Limitations:',
+    ocrDisclaimerP1: 'To keep our "100% Offline, Zero Upload" privacy promise, the local scanning engine has limits.',
+    ocrDisclaimerP2: '❌ Cannot process: Mixed Pinyin, handwriting, or complex backgrounds.',
+    ocrDisclaimerP3: 'If the layout is complex, please use the "AI Assistant" feature below.',
+    photoBtnSimple: 'Scan simple text layout',
+
     photoBtn: '📸 Take Photo or Select Image',
     testVoiceBtn: '🔊 Test Voice',
     startBtn: '▶ Start Dictation',
@@ -119,7 +139,7 @@ export const translations = {
     voiceSelectLabel: 'Voice',
 
     aiTipTitle: '💡 Complex Layout? OCR Failed?',
-    aiTipDesc: 'If the textbook has pinyin, handwriting, or a complex background, local OCR might fail. To protect your privacy, we do not upload your photos. We recommend using your own AI tool (e.g., ChatGPT, Claude). Copy the prompt below and attach the photo to get accurate dictation text!',
+    aiTipDesc: 'We recommend using your own AI tool (e.g., ChatGPT, Claude). Copy the prompt below and attach the photo to get accurate dictation text!',
     aiPromptText: 'You are a primary school dictation assistant. Please extract the dictation vocabulary or sentences from the uploaded image. Ignore names, dates, pinyin, and unrelated instructions. Fix obvious typos. Output strictly as plain text, with each word or sentence on a new line. Do not include greetings or numbering.',
     copyPromptBtn: '📋 Copy Prompt',
     promptCopied: 'Prompt copied! Please paste it into your AI tool.',
