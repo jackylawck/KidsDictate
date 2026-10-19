@@ -107,6 +107,9 @@ export class AppController {
     this.el.langZhBtn?.setAttribute('aria-pressed', String(locale === 'zh-HK'));
     this.el.langEnBtn?.setAttribute('aria-pressed', String(locale === 'en'));
 
+    // 同步更新語速 Range 的 aria-valuetext 與可見文字
+    this._updateRateRangeAria();
+
     if (!this.speechService.isActive) this.populateVoices();
   }
 
@@ -199,6 +202,17 @@ export class AppController {
     return this._populatingVoices;
   }
 
+  // 輔助方法：確保 Range 可見文字與語音播報單位完美同步
+  _updateRateRangeAria() {
+    if (!this.el.rateRange) return;
+    const val = this.el.rateRange.value;
+    const unit = i18n.getLocale() === 'zh-HK' ? ' 倍' : 'x';
+    const text = `${val}${unit}`;
+    
+    this.el.rateRange.setAttribute('aria-valuetext', text);
+    if (this.el.rateLabel) this.el.rateLabel.textContent = text;
+  }
+
   bindEvents() {
     this.el.langZhBtn?.addEventListener('click', () => i18n.setLocale('zh-HK'));
     this.el.langEnBtn?.addEventListener('click', () => i18n.setLocale('en'));
@@ -208,8 +222,12 @@ export class AppController {
     this.el.langSelect.addEventListener('change', () => this.populateVoices());
     this.populateVoices();
 
+    // 初始化時先賦予一次 aria-valuetext 與可見文字
+    this._updateRateRangeAria();
+
     this.el.rateRange.addEventListener('input', () => {
-      this.el.rateLabel.textContent = `${this.el.rateRange.value}x`;
+      // 統一更新可見文字與 a11y 語意播報
+      this._updateRateRangeAria();
     });
 
     this.el.maskToggle?.addEventListener('change', () => this.renderWordDisplay());
@@ -236,7 +254,6 @@ export class AppController {
       } catch (err) {
         if (token !== this._ocrToken) return;
         
-        // [完成修復] 補齊所有邊緣錯誤碼，確保 i18n 完全覆蓋
         const msgMap = {
           INVALID_INPUT: 'ocrErrInvalidInput',
           INVALID_TYPE: 'ocrErrInvalidType',
