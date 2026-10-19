@@ -17,7 +17,14 @@ export class SpeechService {
     const t = setTimeout(() => {
       this.timers.delete(t);
       this._pausedTask = null;
-      if (this.isActive && !this.isQueuePaused) fn();
+      if (this.isActive && !this.isQueuePaused) {
+        // [P3-2 優化] 防禦未來 fn 若變為同步邏輯時拋出未捕獲異常
+        try {
+          fn();
+        } catch (e) {
+          console.error('[SpeechService] scheduled task error:', e);
+        }
+      }
     }, ms);
     this.timers.add(t);
     this._pausedTask = { fn, remaining: ms, start, timerId: t };
@@ -30,14 +37,14 @@ export class SpeechService {
     this._resumeAfterPause = null; // 清理計時器時一併清理暫掛任務
   }
 
-  // [P3-1 修正] 重新命名以精確反映職責：導航準備
+  // 重新命名以精確反映職責：導航準備
   _prepareForNavigation() {
     // 跳過/重播/上一題在暫停狀態下會隱式恢復佇列，
     // UI 層的 resetPauseButtonUI() 會同步更新暫停按鈕文字。
     this.isQueuePaused = false;
     this.clearQueueTimers();
     
-    // [P3-2 註釋] 此處 engine.stop() 與後續 speakCurrent() 的 engine.play() 內部的 stop() 冗餘，
+    // 此處 engine.stop() 與後續 speakCurrent() 的 engine.play() 內部的 stop() 冗餘，
     // 但保留以確保 _prepareForNavigation 獨立完整，不依賴調用方的後續行為。
     this.engine.stop();
     this.repeat = 0;
@@ -50,7 +57,7 @@ export class SpeechService {
     this.isQueuePaused = false;
     this.clearQueueTimers();
     
-    // [P3-3 註釋] 不調用 engine.stop()：
+    // 不調用 engine.stop()：
     // onError/onInterrupted 由 engine.play 的回調觸發，此時 SpeechEngine 內部已 cleanup()
     // （currentUtterance=null、stopHeartbeat 等），再調 stop() 只是多一次 _token 遞增，語義上不必。
     return true;
@@ -59,7 +66,10 @@ export class SpeechService {
   async startQueue(items, config, callbacks) {
     this.stop();
     const token = ++this._queueToken;
-    this.queue = items;
+    
+    // [P3-1 優化] 防禦性淺拷貝：註明 items 必須是 string[]，若未來改為物件陣列需改為深拷貝
+    this.queue = [...items];
+    
     this.config = config;
     this.callbacks = callbacks;
     this.idx = 0;
@@ -177,6 +187,7 @@ export class SpeechService {
     }
 
     // 引擎可能已經在播放中暫停，或者根本沒在播（計時器狀態），這不影響佇列的暫停
+    // [P3-3 優化] 註明返回值語義：僅代表佇列成功進入暫停狀態，不保證底層引擎的狀態改變
     this.engine.pause?.();
     return true;
   }
@@ -200,7 +211,7 @@ export class SpeechService {
       // 計時器狀態下恢復：引擎本來就沒在播，resume 回傳 false 是正常的
       this.engine.resume?.();
     }
-    return true;
+    return true; // 佇列成功恢復
   }
 
   isPaused() {
