@@ -107,7 +107,6 @@ export class AppController {
     this.el.langZhBtn?.setAttribute('aria-pressed', String(locale === 'zh-HK'));
     this.el.langEnBtn?.setAttribute('aria-pressed', String(locale === 'en'));
 
-    // [P3-2 修正] 只在非播放狀態下，切換 i18n 才重新填充語音選單，避免 UI 選單與背後播放的語音脫鉤
     if (!this.speechService.isActive) this.populateVoices();
   }
 
@@ -237,6 +236,7 @@ export class AppController {
       } catch (err) {
         if (token !== this._ocrToken) return;
         
+        // [完成修復] 補齊所有邊緣錯誤碼，確保 i18n 完全覆蓋
         const msgMap = {
           INVALID_INPUT: 'ocrErrInvalidInput',
           INVALID_TYPE: 'ocrErrInvalidType',
@@ -244,7 +244,11 @@ export class AppController {
           NO_OFFSCREEN_CANVAS: 'ocrErrNoCanvas',
           DECODE_FAILED: 'ocrErrDecodeFailed',
           HEIC_UNSUPPORTED: 'ocrErrHeic', 
-          NO_CONTEXT: 'ocrErrNoContext'
+          NO_CONTEXT: 'ocrErrNoContext',
+          ENGINE_INIT_FAILED: 'ocrErrEngineInit',
+          ENGINE_NOT_LOADED: 'ocrErrEngineNotLoaded',
+          TIMEOUT: 'ocrErrTimeout',
+          WORKER_CRASH: 'ocrErrWorkerCrash'
         };
         const key = msgMap[err.code];
         this.showToast(key ? i18n.t(key) : err, 'error');
@@ -354,6 +358,15 @@ export class AppController {
     
     this.setPlaybackUI(true);
 
+    // [iOS 語音修復] 同步發送極短無聲音訊，解鎖 Safari 權限
+    if (window.speechSynthesis) {
+      const unlockMsg = new SpeechSynthesisUtterance('一');
+      unlockMsg.volume = 0.01; 
+      unlockMsg.rate = 10;
+      unlockMsg.lang = lang;
+      window.speechSynthesis.speak(unlockMsg);
+    }
+
     this.speechService.startQueue(items, config, {
       onEngineInit: () => { 
         this._lastRepeatStatus = i18n.t('initVoiceStatus');
@@ -394,7 +407,6 @@ export class AppController {
     });
   }
 
-  // [P0 修正] 移除自毀守衛，讓 handleStop() 回歸為純粹的狀態重置函式
   handleStop() {
     this.speechService.stop();
     clearInterval(this.countdownInterval);
@@ -421,7 +433,6 @@ export class AppController {
     this.el.answerSheet?.classList.remove('hidden');
   }
 
-  // [P3-1 修正] 移除無法捕獲 return 且無必要的 try/catch
   destroy() {
     if (this._unsubI18n) this._unsubI18n();
     this.handleStop(); 
