@@ -5,7 +5,7 @@ const STORAGE_KEY = 'kidsdictate_locale';
 export const translations = {
   'zh-HK': {
     appTitle: '童心默書 KidsDictate',
-    appSubtitle: '本機離線運算 · 零資料上傳 · 家長安心',
+    appSubtitle: '本機運算 · 零資料上傳 · 家長安心',
     privacyTitle: '🔒 隱私與安全說明 (家長請看)',
     privacyP1: '✅ 零資料上傳：照片與詞表只在手機記憶體內處理，絕對不上傳伺服器。',
     privacyP2: '✅ 本機運算：無追蹤碼、無廣告、不收集姓名或學校資料。',
@@ -45,21 +45,21 @@ export const translations = {
     voiceListLoadError: '語音清單載入失敗，請重試',
     noVoiceAvailable: '⚠️ 此裝置無該語言的語音包',
     
-    // [P1 修復] 補齊語系選單的翻譯 Key，解決 UI 上顯示 langZhHK 等原始 Key 名的問題
     langZhHK: '粵語 (廣東話)',
     langEnUS: 'English (US)',
     langEnGB: 'English (UK)',
 
-    // [終極 P2/P3 補齊] 靜音提示與完整的 OCR 邊緣錯誤映射
     silentModeHint: '🔊 若聽不到聲音，請檢查 iPhone 側邊的靜音開關是否已關閉。',
     ocrErrEngineInit: '辨識引擎初始化失敗，請檢查網絡或重試',
     ocrErrEngineNotLoaded: 'OCR 引擎未載入',
     ocrErrTimeout: '圖片處理超時，請重試',
-    ocrErrWorkerCrash: '圖片處理失敗，請重試'
+    ocrErrWorkerCrash: '圖片處理失敗，請重試',
+    voiceSelectLabel: '聲音選擇'
   },
   'en': {
     appTitle: 'KidsDictate',
-    appSubtitle: 'Client-Side Only · Zero Data Retention · 100% Private',
+    // [P3 修復] 將 Offline 改為 Local，與中文本機運算及 privacyP2 完美對齊語意
+    appSubtitle: 'Local Processing · Zero Data Upload · 100% Private',
     privacyTitle: '🔒 Privacy & Security Guarantee',
     privacyP1: '✅ Zero Data Upload: Photos & words are processed entirely in device memory.',
     privacyP2: '✅ Local Processing: Zero network trackers, zero ads, no telemetry.',
@@ -99,23 +99,21 @@ export const translations = {
     voiceListLoadError: 'Failed to load voice list. Please try again.',
     noVoiceAvailable: '⚠️ No voice available for this language',
 
-    // [P1 修復] 補齊語系選單的翻譯 Key，與 zh-HK 對稱以通過型別檢查
     langZhHK: 'Cantonese',
     langEnUS: 'English (US)',
     langEnGB: 'English (UK)',
 
-    // [終極 P2/P3 補齊] 靜音提示與完整的 OCR 邊緣錯誤映射，完美對稱
     silentModeHint: '🔊 If you hear no sound, check the silent switch on the side of your iPhone.',
     ocrErrEngineInit: 'OCR engine init failed. Please check network and retry.',
     ocrErrEngineNotLoaded: 'OCR engine not loaded',
     ocrErrTimeout: 'Image processing timeout. Please retry.',
-    ocrErrWorkerCrash: 'Image processing failed. Please retry.'
+    ocrErrWorkerCrash: 'Image processing failed. Please retry.',
+    voiceSelectLabel: 'Voice'
   }
 } as const;
 
 export type TranslationKey = keyof typeof translations['zh-HK'];
 
-// 純型別編譯期檢查：若雙語 Key 不對稱，TSC 將強制報錯
 type KeysOf<T> = keyof T;
 type ZhKeys = KeysOf<typeof translations['zh-HK']>;
 type EnKeys = KeysOf<typeof translations['en']>;
@@ -168,7 +166,10 @@ export class I18nService {
 
   public t(key: TranslationKey, params?: Record<string, string | number>): string {
     const dict = translations[this.currentLocale] as Record<TranslationKey, string>;
+    
+    // fallback 固定 zh-HK：香港默書工具，繁體中文是基準語言
     const fallbackDict = translations['zh-HK'] as Record<TranslationKey, string>;
+    
     let str: string = dict[key] ?? fallbackDict[key] ?? key;
 
     if (params) {
