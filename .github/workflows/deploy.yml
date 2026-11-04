@@ -57,7 +57,10 @@ jobs:
           # 複製現有的核心目錄
           cp -r index.html css js vendor dist/
           
-          # [P2 修復] 防禦性複製：為未來的 PWA 離線支援鋪路 (不存在時自動忽略)
+          # [修正] 複製所有根目錄 PNG 圖示至發布資料夾
+          cp *.png dist/ 2>/dev/null || true
+          
+          # 防禦性複製：PWA 與其他資源目錄
           cp sw.js manifest.json dist/ 2>/dev/null || true
           cp -r assets icons dist/ 2>/dev/null || true
           
