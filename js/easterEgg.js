@@ -9,7 +9,6 @@
 
   var MONO = '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace';
 
-  // 採用顯眼、高對比且相容 Console 淺色/深色主題的配色
   var S = {
     title: 'background: #4F46E5; color: #FFFFFF; font-family: ' + MONO + '; font-size: 13px; font-weight: 800; padding: 6px 12px; border-radius: 4px; display: block;',
     badgeGreen: 'background: #DEF7EC; color: #03543F; font-family: ' + MONO + '; font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 4px; border: 1px solid #31C48D;',
@@ -42,10 +41,10 @@
     console.log('%c🌱 童心默書 KidsDictate // 親子正向陪伴與默書加油站', S.title);
     console.log('');
     console.log(
-      '%c💖 專注陪伴 100%%c  %c⭐ 肯定努力 · 每日進步%c  %c😊 笑容常在 · 關係第一 ',
+      '%c💖 專注陪伴 100 分%c  %c⭐ 肯定努力 · 每日進步%c  %c😊 笑容常在 · 關係第一%c',
       S.badgeGreen, '',
       S.badgeAmber, '',
-      S.badgePurple
+      S.badgePurple, ''
     );
     console.log('');
 
@@ -62,11 +61,16 @@
   }
 
   var breatheTimer = null;
+  var onKeyDown = null;
 
   function removeBreatheHud() {
     if (breatheTimer) {
       clearInterval(breatheTimer);
       breatheTimer = null;
+    }
+    if (onKeyDown) {
+      window.removeEventListener('keydown', onKeyDown);
+      onKeyDown = null;
     }
     var existing = document.getElementById('kids-breathe-hud');
     if (existing && existing.parentNode) {
@@ -81,7 +85,7 @@
       console.log('%ckids.cheer()%c   - 抽取一句家長溫馨減壓金句 / Daily parenting quote', S.cmdKey, S.cmdDesc);
       console.log('%ckids.reward()%c  - 隨機抽一份默書完成的親子專屬小獎勵 / Parent-child reward', S.cmdKey, S.cmdDesc);
       console.log('%ckids.cheers()%c  - 畫面泛起成功光芒，慶祝完成練習！/ Celebrate finish', S.cmdKey, S.cmdDesc);
-      return '輸入上述任一指令（例如 kids.cheer() 或 relax()）即可執行。';
+      return '輸入上述任一指令（例如 relax()、cheer()、reward()）即可執行。';
     },
 
     relax: function () {
@@ -111,12 +115,19 @@
         '  <div style="font-size: 16px; font-weight: 800; color: #4338CA; margin-bottom: 12px;">深呼吸放鬆區</div>',
         '  <div id="breathe-stage" style="font-size: 20px; font-weight: 800; color: #1E293B; margin: 16px 0; min-height: 32px;">緩緩吸氣... 放鬆心情</div>',
         '  <div id="breathe-sec" style="font-size: 48px; font-weight: 900; color: #6366F1; font-variant-numeric: tabular-nums;">15</div>',
-        '  <div style="font-size: 12px; color: #64748B; margin-top: 14px;">分數唔代表人生成敗 · 溫柔陪伴先係最長遠嘅力量<br><span style="color:#94A3B8;">(點擊畫面任意處即可關閉)</span></div>',
+        '  <div style="font-size: 12px; color: #64748B; margin-top: 14px;">分數唔代表人生成敗 · 溫柔陪伴先係最長遠嘅力量<br><span style="color:#94A3B8;">(點擊畫面任意處或按 ESC 即可關閉)</span></div>',
         '</div>'
       ].join('');
 
       document.body.appendChild(hud);
       hud.addEventListener('click', removeBreatheHud);
+
+      onKeyDown = function (e) {
+        if (e.key === 'Escape') {
+          removeBreatheHud();
+        }
+      };
+      window.addEventListener('keydown', onKeyDown);
 
       var sec = 15;
       var secEl = document.getElementById('breathe-sec');
@@ -142,7 +153,7 @@
         }
       }, 1000);
 
-      return '15 秒放鬆導引已啟動。點擊螢幕可隨時關閉。';
+      return '15 秒放鬆導引已啟動。點擊螢幕或按 ESC 鍵可隨時關閉。';
     },
 
     cheer: function () {
@@ -182,6 +193,8 @@
 
   window.kids = kidsSuite;
   window.relax = kidsSuite.relax;
+  window.cheer = kidsSuite.cheer;
+  window.reward = kidsSuite.reward;
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     setTimeout(renderTerminal, 300);
